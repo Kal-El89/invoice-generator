@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <title>პროფესიონალური ინვოისების გენერატორი</title>
+    <!-- საჭირო ბიბლიოთეკები -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2b6cb0; /* ლოგოს ლურჯი ფერთან მაქსიმალურად მიახლოებული */
+            --accent-color: #319795;  /* ლოგოს მწვანე ტონი */
+            --bg-color: #f7fafc;
+        }
+
+        body { font-family: 'BPG Arial', sans-serif; background: var(--bg-color); margin: 0; padding: 20px; }
+        
+        /* ტაბების ნავიგაცია */
+        .tab-nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 20px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: #4a5568; font-size: 15px; }
+        .tab-btn.active { background: var(--primary-color); color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; gap: 20px; }
+
+        .form-container { flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-height: 85vh; overflow-y: auto; }
+        .invoice-wrapper { flex: 1.2; }
+        .invoice-container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 13px; color: #4a5568; }
+        input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 4px; }
+        
+        /* ინვოისის ვიზუალი */
+        .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--primary-color); padding-bottom: 20px; }
+        .invoice-logo { max-height: 70px; max-width: 150px; object-fit: contain; }
+        .company-info, .client-info { font-size: 13px; color: #2d3748; line-height: 1.5; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 14px; }
+        th { background: var(--primary-color); color: white; }
+        
+        /* თანხების სექცია */
+        .totals-section { margin-top: 25px; text-align: right; font-size: 14px; line-height: 1.8; }
+        .totals-row { display: flex; justify-content: flex-end; gap: 20px; }
+        .totals-row.final { font-size: 17px; font-weight: bold; color: var(--primary-color); border-top: 2px solid var(--primary-color); padding-top: 5px; margin-top: 5px; }
+        
+        .btn { background: var(--primary-color); color: white; border: none; padding: 12px; cursor: pointer; border-radius: 4px; font-size: 15px; width: 100%; margin-top: 10px; }
+        .btn-bulk { background: var(--accent-color); }
+        .btn-bulk:hover { background: #285e61; }
+
+        .section-title { font-size: 15px; color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-top: 20px; margin-bottom: 10px; font-weight: bold; }
+        .progress-bar { font-size: 13px; color: var(--accent-color); margin-top: 5px; font-weight: bold; }
+        .static-company-card { background: #f7fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; line-height: 1.6; margin-bottom: 15px; }
+        
+        /* ინსტრუქციის სტილი */
+        .instruction-box { background: #ebf8ff; border-left: 4px solid var(--primary-color); padding: 12px 15px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; color: var(--primary-color); line-height: 1.6; }
+        .instruction-box ul { margin: 5px 0 0 20px; padding: 0; }
+
+        /* დინამიური პროდუქტების ფორმის სტილები */
+        .product-item-row { background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 10px; position: relative; }
+        .btn-remove-item { background: #e53e3e; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 5px; }
+        .btn-remove-item:hover { background: #c53030; }
+        .btn-add-item { background: var(--accent-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; width: 100%; margin-bottom: 15px; }
+        .btn-add-item:hover { background: #285e61; }
+    </style>
+</head>
+<body>
+
+    <!-- ტაბების ნავიგაცია -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab(0)">1. მასობრივი გენერაცია</button>
+        <button class="tab-btn" onclick="switchTab(1)">2. ინდივიდუალური ინვოისი</button>
+        <button class="tab-btn" onclick="switchTab(2)">3. შპს ნეთვორქერ თიმი</button>
+        <button class="tab-btn" onclick="switchTab(3)">4. პროდუქციის ინვოისი</button>
+    </div>
+
+    <!-- ტაბი 1: მასობრივი გენერაცია -->
+    <div id="tab0" class="tab-content active">
+        <div class="form-container" style="max-width: 600px; margin: 0 auto;">
+            <h2>მასობრივი გენერაცია</h2>
+            
+            <div class="instruction-box">
+                <strong>მონაცემთა მომზადების ინსტრუქცია:</strong>
+                <p style="margin: 5px 0;">შექმენით ტექსტური ფაილი <strong>.csv</strong> გაფართოებით (მაგალითად, <code>invoices.csv</code>) და თითოეულ ხაზზე ჩაწერეთ მონაცემები შემდეგი თანმიმდევრობით:</p>
+                <ul>
+                    <li><strong>ClientName</strong> – მყიდველი კომპანიის დასახელება</li>
+                    <li><strong>ClientCode</strong> – მყიდველის საიდენტიფიკაციო კოდი</li>
+                    <li><strong>Amount</strong> – თანხა დღგ-ს გარეშე</li>
+                    <li><strong>InvoiceNumber</strong> – ინვოისის ნომერი (არასავალდებულო)</li>
+                    <li><strong>InvoiceDate</strong> – თარიღი YYYY-MM-DD ფორმატში (არასავალდებულო)</li>
+                </ul>
+                <p style="margin: 8px 0 0 0;"><em>მაგალითი ხაზი:</em><br><code>შპს კომპანია,400000001,1500,№ 2026-001,2026-06-06</code></p>
+            </div>
+
+            <div class="section-title">CSV ფაილის ატვირთვა</div>
+            <div class="form-group">
+                <input type="file" id="csvInput" accept=".csv">
+            </div>
+            <button class="btn btn-bulk" id="bulkDownloadBtn">ყველა ინვოისის არქივად გადმოწერა (.zip)</button>
+            <div id="progressText" class="progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- ტაბი 2: ინდივიდუალური ინვოისი (სრული ველებით) -->
+    <div id="tab1" class="tab-content">
+        <div class="form-container">
+            <h2>ინდივიდუალური ინვოისი</h2>
+            
+            <div class="form-group">
+                <label>ენა / Language:</label>
+                <select id="langSelect2">
+                    <option value="ka">ქართული</option>
+                    <option value="en">English</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>ლოგო:</label>
+                <input type="file" id="logoInput2" accept="image/*">
+            </div>
+
+            <div class="section-title">გამყიდველი მხარე</div>
+            <div class="form-group">
+                <label>გამყიდველი კომპანია:</label>
+                <input type="text" id="sellerName2" value="შპს გამყიდველი">
+            </div>
+            <div class="form-group">
+                <label>საიდენტიფიკაციო კოდი:</label>
+                <input type="text" id="sellerCode2" value="123456789">
+            </div>
+            <div class="form-group">
+                <label>საბანკო ანგარიში (IBAN):</label>
+                <input type="text" id="sellerBank2" value="GE00TB0000000000000000">
+            </div>
+
+            <div class="section-title">ინვოისის მონაცემები</div>
+            <div class="form-group">
+                <label>ინვოისის №:</label>
+                <input type="text" id="invNum2" value="№ 2026-001">
+            </div>
+            <div class="form-group">
+                <label>თარიღი:</label>
+                <input type="date" id="invDate2">
+            </div>
+            <div class="form-group">
+                <label>მყიდველი კომპანია:</label>
+                <input type="text" id="clientName2" placeholder="შპს მყიდველი">
+            </div>
+            <div class="form-group">
+                <label>მყიდველის საიდენტიფიკაციო კოდი:</label>
+                <input type="text" id="clientCode2" placeholder="მყიდველის კოდი">
+            </div>
+
+            <div class="section-title">მომსახურება და თანხა</div>
+            <div class="form-group">
+                <label>მომსახურების აღწერა:</label>
+                <input type="text" id="itemDesc2" value="ყოველთვიური მომსახურება">
+            </div>
+            <div class="form-group">
+                <label>მომსახურების თანხა (დღგ-ს გარეშე) ₾:</label>
+                <input type="number" id="itemPrice2" value="1000">
+            </div>
+            <div class="form-group">
+                <label>დღგ (%):</label>
+                <select id="vatRate2">
+                    <option value="18" selected>18% დღგ</option>
+                    <option value="0">0% (დღგ-ს გარეშე)</option>
+                </select>
+            </div>
+
+            <button class="btn" id="downloadBtn2">PDF-ის გადმოწერა</button>
+        </div>
+
+        <div class="invoice-wrapper">
+            <div class="invoice-container" id="invoice2">
+                <div class="invoice-header">
+                    <div>
+                        <h2 id="invTitle2" style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
+                        <p style="margin: 3px 0;"><strong><span id="tNum2">ნომერი</span>:</strong> <span id="previewNum2">№ 2026-001</span></p>
+                        <p style="margin: 3px 0;"><strong><span id="tDate2">თარიღი</span>:</strong> <span id="previewDate2">-</span></p>
+                    </div>
+                    <div>
+                        <img id="previewLogo2" class="invoice-logo" src="" alt="">
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                    <div class="company-info">
+                        <strong><span id="tSellerTitle2">გამყიდველი</span>:</strong><br>
+                        <span id="previewSeller2">შპს გამყიდველი</span><br>
+                        <strong>ს/კ:</strong> <span id="previewSellerCode2">123456789</span><br>
+                        <strong>IBAN:</strong> <span id="previewBank2">GE00TB0000000000000000</span>
+                    </div>
+                    <div class="client-info" style="text-align: right;">
+                        <strong><span id="tClientTitle2">მყიდველი</span>:</strong><br>
+                        <span id="previewClient2" style="font-weight: bold; font-size: 15px;">-</span><br>
+                        <span>ს/კ: <span id="previewClientCode2">-</span></span>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="thDesc2">მომსახურების დასახელება</th>
+                            <th id="thPrice2" style="width: 140px; text-align: right;">თანხა</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="previewDesc2">ყოველთვიური მომსახურება</td>
+                            <td style="text-align: right;"><span id="previewPrice2">1000.00</span> ₾</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="totals-section">
+                    <div class="totals-row">
+                        <span id="tSubtotalLabel2">მომსახურების თანხა (დღგ-ს გარეშე):</span>
+                        <span><strong id="previewSubtotal2">1000.00</strong> ₾</span>
+                    </div>
+                    <div class="totals-row">
+                        <span id="tVatLabel2">დღგ (18%):</span>
+                        <span><strong id="previewVat2">180.00</strong> ₾</span>
+                    </div>
+                    <div class="totals-row final">
+                        <span id="tTotalLabel2">სულ გადასახდელი (Total):</span>
+                        <span><strong id="previewTotal2">1180.00</strong> ₾</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ტაბი 3: შპს ნეთვორქერ თიმი -->
+    <div id="tab2" class="tab-content">
+        <div class="form-container">
+            <h2>შპს ნეთვორქერ თიმი - ინვოისი</h2>
+            
+            <div class="form-group">
+                <label>ენა / Language:</label>
+                <select id="langSelect3">
+                    <option value="ka">ქართული</option>
+                    <option value="en">English</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </div>
+
+            <div class="static-company-card">
+                <strong>გამყიდველი:</strong> შპს ნეთვორქერ თიმი<br>
+                <strong>ს/კ:</strong> 405813767<br>
+                <strong>ანგარიშები:</strong><br>
+                - GE84TB7487536080100009 (TBC)<br>
+                - GE84BG0000000610898120 (BOG)
+            </div>
+
+            <div class="section-title">ინვოისის მონაცემები</div>
+            <div class="form-group">
+                <label>ინვოისის №:</label>
+                <input type="text" id="invNum3" value="№ 2026-001">
+            </div>
+            <div class="form-group">
+                <label>თარიღი:</label>
+                <input type="date" id="invDate3">
+            </div>
+            <div class="form-group">
+                <label>მყიდველი კომპანია:</label>
+                <input type="text" id="clientName3" placeholder="შპს მყიდველი">
+            </div>
+            <div class="form-group">
+                <label>მყიდველის საიდენტიფიკაციო კოდი:</label>
+                <input type="text" id="clientCode3" placeholder="მყიდველის კოდი">
+            </div>
+
+            <div class="section-title">მომსახურება და თანხა</div>
+            <div class="form-group">
+                <label>მომსახურების აღწერა:</label>
+                <input type="text" id="itemDesc3" value="ყოველთვიური მომსახურება">
+            </div>
+            <div class="form-group">
+                <label>მომსახურების თანხა (დღგ-ს გარეშე) ₾:</label>
+                <input type="number" id="itemPrice3" value="1000">
+            </div>
+            <div class="form-group">
+                <label>დღგ (%):</label>
+                <select id="vatRate3">
+                    <option value="18" selected>18% დღგ</option>
+                    <option value="0">0% (დღგ-ს გარეშე)</option>
+                </select>
+            </div>
+
+            <button class="btn" id="downloadBtn3">PDF-ის გადმოწერა</button>
+        </div>
+
+        <div class="invoice-wrapper">
+            <div class="invoice-container" id="invoice3">
+                <div class="invoice-header">
+                    <div>
+                        <h2 id="invTitle3" style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
+                        <p style="margin: 3px 0;"><strong><span id="tNum3">ნომერი</span>:</strong> <span id="previewNum3">№ 2026-001</span></p>
+                        <p style="margin: 3px 0;"><strong><span id="tDate3">თარიღი</span>:</strong> <span id="previewDate3">-</span></p>
+                    </div>
+                    <div>
+                        <img src="logo/last ver log.svg" class="invoice-logo" alt="Logo">
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                    <div class="company-info">
+                        <strong><span id="tSellerTitle3">გამყიდველი</span>:</strong><br>
+                        <span>შპს ნეთვორქერ თიმი</span><br>
+                        <strong>ს/კ:</strong> 405813767<br>
+                        <strong>IBAN 1:</strong> GE84TB7487536080100009<br>
+                        <strong>IBAN 2:</strong> GE84BG0000000610898120
+                    </div>
+                    <div class="client-info" style="text-align: right;">
+                        <strong><span id="tClientTitle3">მყიდველი</span>:</strong><br>
+                        <span id="previewClient3" style="font-weight: bold; font-size: 15px;">-</span><br>
+                        <span>ს/კ: <span id="previewClientCode3">-</span></span>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="thDesc3">მომსახურების დასახელება</th>
+                            <th id="thPrice3" style="width: 140px; text-align: right;">თანხა</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="previewDesc3">ყოველთვიური მომსახურება</td>
+                            <td style="text-align: right;"><span id="previewPrice3">1000.00</span> ₾</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="totals-section">
+                    <div class="totals-row">
+                        <span id="tSubtotalLabel3">მომსახურების თანხა (დღგ-ს გარეშე):</span>
+                        <span><strong id="previewSubtotal3">1000.00</strong> ₾</span>
+                    </div>
+                    <div class="totals-row">
+                        <span id="tVatLabel3">დღგ (18%):</span>
+                        <span><strong id="previewVat3">180.00</strong> ₾</span>
+                    </div>
+                    <div class="totals-row final">
+                        <span id="tTotalLabel3">სულ გადასახდელი (Total):</span>
+                        <span><strong id="previewTotal3">1180.00</strong> ₾</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ტაბი 4: პროდუქციის ინვოისი -->
+    <div id="tab3" class="tab-content">
+        <div class="form-container">
+            <h2>პროდუქციის ინვოისი</h2>
+            
+            <div class="form-group">
+                <label>ენა / Language:</label>
+                <select id="langSelect4">
+                    <option value="ka">ქართული</option>
+                    <option value="en">English</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>ლოგო:</label>
+                <input type="file" id="logoInput4" accept="image/*">
+            </div>
+
+            <div class="section-title">გამყიდველი მხარე</div>
+            <div class="form-group">
+                <label>გამყიდველი კომპანია:</label>
+                <input type="text" id="sellerName4" value="შპს გამყიდველი">
+            </div>
+            <div class="form-group">
+                <label>საიდენტიფიკაციო კოდი:</label>
+                <input type="text" id="sellerCode4" value="123456789">
+            </div>
+            <div class="form-group">
+                <label>საბანკო ანგარიში (IBAN):</label>
+                <input type="text" id="sellerBank4" value="GE00TB0000000000000000">
+            </div>
+
+            <div class="section-title">ინვოისის მონაცემები</div>
+            <div class="form-group">
+                <label>ინვოისის №:</label>
+                <input type="text" id="invNum4" value="№ 2026-001">
+            </div>
+            <div class="form-group">
+                <label>თარიღი:</label>
+                <input type="date" id="invDate4">
+            </div>
+            <div class="form-group">
+                <label>მყიდველი კომპანია:</label>
+                <input type="text" id="clientName4" placeholder="შპს მყიდველი">
+            </div>
+            <div class="form-group">
+                <label>მყიდველის საიდენტიფიკაციო კოდი:</label>
+                <input type="text" id="clientCode4" placeholder="მყიდველის კოდი">
+            </div>
+
+            <div class="section-title">პროდუქტები (მაქს. 10 პუნქტი)</div>
+            <div id="productsContainer">
+                <!-- დინამიური პროდუქტები ჩაიტვირთება აქ -->
+            </div>
+            <button type="button" class="btn-add-item" id="addProductBtn">+ პროდუქციის დამატება</button>
+
+            <div class="form-group">
+                <label>დღგ (%):</label>
+                <select id="vatRate4">
+                    <option value="18" selected>18% დღგ</option>
+                    <option value="0">0% (დღგ-ს გარეშე)</option>
+                </select>
+            </div>
+
+            <button class="btn" id="downloadBtn4">PDF-ის გადმოწერა</button>
+        </div>
+
+        <div class="invoice-wrapper">
+            <div class="invoice-container" id="invoice4">
+                <div class="invoice-header">
+                    <div>
+                        <h2 id="invTitle4" style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
+                        <p style="margin: 3px 0;"><strong><span id="tNum4">ნომერი</span>:</strong> <span id="previewNum4">№ 2026-001</span></p>
+                        <p style="margin: 3px 0;"><strong><span id="tDate4">თარიღი</span>:</strong> <span id="previewDate4">-</span></p>
+                    </div>
+                    <div>
+                        <img id="previewLogo4" class="invoice-logo" src="" alt="">
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                    <div class="company-info">
+                        <strong><span id="tSellerTitle4">გამყიდველი</span>:</strong><br>
+                        <span id="previewSeller4">შპს გამყიდველი</span><br>
+                        <strong>ს/კ:</strong> <span id="previewSellerCode4">123456789</span><br>
+                        <strong>IBAN:</strong> <span id="previewBank4">GE00TB0000000000000000</span>
+                    </div>
+                    <div class="client-info" style="text-align: right;">
+                        <strong><span id="tClientTitle4">მყიდველი</span>:</strong><br>
+                        <span id="previewClient4" style="font-weight: bold; font-size: 15px;">-</span><br>
+                        <span>ს/კ: <span id="previewClientCode4">-</span></span>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="thDesc4">პროდუქციის დასახელება</th>
+                            <th style="width: 80px; text-align: center;">ერთეული</th>
+                            <th style="width: 100px; text-align: right;">ერთ. ფასი</th>
+                            <th style="width: 80px; text-align: center;">რაოდენობა</th>
+                            <th id="thPrice4" style="width: 100px; text-align: right;">თანხა</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewTableBody4">
+                        <!-- ცხრილის დინამიური მწკრივები -->
+                    </tbody>
+                </table>
+                
+                <div class="totals-section">
+                    <div class="totals-row">
+                        <span id="tSubtotalLabel4">პროდუქციის თანხა (დღგ-ს გარეშე):</span>
+                        <span><strong id="previewSubtotal4">0.00</strong> ₾</span>
+                    </div>
+                    <div class="totals-row">
+                        <span id="tVatLabel4">დღგ (18%):</span>
+                        <span><strong id="previewVat4">0.00</strong> ₾</span>
+                    </div>
+                    <div class="totals-row final">
+                        <span id="tTotalLabel4">სულ გადასახდელი (Total):</span>
+                        <span><strong id="previewTotal4">0.00</strong> ₾</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- დამალული შაბლონი მასობრივი გენერაციისთვის -->
+    <div id="hiddenInvoiceContainer" style="position: absolute; left: -9999px; top: -9999px;">
+        <div class="invoice-container" id="bulkInvoice" style="width: 700px; background: white; padding: 40px;">
+            <div class="invoice-header">
+                <div>
+                    <h2 style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
+                    <p style="margin: 3px 0;"><strong>ნომერი:</strong> <span id="bPreviewNum">№ 2026-001</span></p>
+                    <p style="margin: 3px 0;"><strong>თარიღი:</strong> <span id="bPreviewDate">-</span></p>
+                </div>
+                <div>
+                    <img src="logo/last ver log.svg" class="invoice-logo" alt="Logo">
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <div class="company-info">
+                    <strong>გამყიდველი:</strong><br>
+                    შპს ნეთვორქერ თიმი<br>
+                    <strong>ს/კ:</strong> 405813767<br>
+                    <strong>IBAN 1:</strong> GE84TB7487536080100009<br>
+                    <strong>IBAN 2:</strong> GE84BG0000000610898120
+                </div>
+                <div class="client-info" style="text-align: right;">
+                    <strong>მყიდველი:</strong><br>
+                    <span id="bPreviewClient" style="font-weight: bold; font-size: 15px;">-</span><br>
+                    <span>ს/კ: <span id="bPreviewClientCode">-</span></span>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>მომსახურების დასახელება</th>
+                        <th style="width: 140px; text-align: right;">თანხა</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ყოველთვიური მომსახურება</td>
+                        <td style="text-align: right;"><span id="bPreviewPrice">1000.00</span> ₾</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="totals-section">
+                <div class="totals-row">
+                    <span>მომსახურების თანხა (დღგ-ს გარეშე):</span>
+                    <span><strong id="bPreviewSubtotal">1000.00</strong> ₾</span>
+                </div>
+                <div class="totals-row">
+                    <span>დღგ (18%):</span>
+                    <span><strong id="bPreviewVat">180.00</strong> ₾</span>
+                </div>
+                <div class="totals-row final">
+                    <span>სულ გადასახდელი (Total):</span>
+                    <span><strong id="bPreviewTotal">1180.00</strong> ₾</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(index) {
+            const tabs = document.querySelectorAll('.tab-content');
+            const btns = document.querySelectorAll('.tab-btn');
+            tabs.forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+                btns[i].classList.toggle('active', i === index);
+            });
+        }
+
+        const texts = {
+            ka: { invTitle: "ინვოისი", tNum: "ნომერი", tDate: "თარიღი", tSellerTitle: "გამყიდველი", tClientTitle: "მყიდველი", thDesc: "მომსახურების დასახელება", thPrice: "თანხა", tSubtotalLabel: "მომსახურების თანხა (დღგ-ს გარეშე)", tVatLabel: "დღგ", tTotalLabel: "სულ გადასახდელი (Total)", downloadBtn: "PDF-ის გადმოწერა" },
+            en: { invTitle: "INVOICE", tNum: "Number", tDate: "Date", tSellerTitle: "Seller", tClientTitle: "Client", thDesc: "Description", thPrice: "Amount", tSubtotalLabel: "Subtotal (Excl. VAT)", tVatLabel: "VAT", tTotalLabel: "Total Amount Due", downloadBtn: "Download PDF" },
+            ru: { invTitle: "СЧЕТ-ФАКТУРА", tNum: "Номер", tDate: "Дата", tSellerTitle: "Продавец", tClientTitle: "Покупатель", thDesc: "Описание услуг", thPrice: "Сумма", tSubtotalLabel: "Сумма услуг (без НДС)", tVatLabel: "НДС", tTotalLabel: "Всего к оплате (Total)", downloadBtn: "Скачать PDF" }
+        };
+
+        const textsProduct = {
+            ka: { invTitle: "ინვოისი", tNum: "ნომერი", tDate: "თარიღი", tSellerTitle: "გამყიდველი", tClientTitle: "მყიდველი", thDesc: "პროდუქციის დასახელება", thPrice: "თანხა", tSubtotalLabel: "პროდუქციის თანხა (დღგ-ს გარეშე)", tVatLabel: "დღგ", tTotalLabel: "სულ გადასახდელი (Total)", downloadBtn: "PDF-ის გადმოწერა" },
+            en: { invTitle: "INVOICE", tNum: "Number", tDate: "Date", tSellerTitle: "Seller", tClientTitle: "Client", thDesc: "Product Description", thPrice: "Amount", tSubtotalLabel: "Subtotal (Excl. VAT)", tVatLabel: "VAT", tTotalLabel: "Total Amount Due", downloadBtn: "Download PDF" },
+            ru: { invTitle: "СЧЕТ-ФАКТУРА", tNum: "Номер", tDate: "Дата", tSellerTitle: "Продавец", tClientTitle: "Покупатель", thDesc: "Наименование продукции", thPrice: "Сумма", tSubtotalLabel: "Сумма продукции (без НДС)", tVatLabel: "НДС", tTotalLabel: "Всего к оплате (Total)", downloadBtn: "Скачать PDF" }
+        };
+
+        const getEl = id => document.getElementById(id);
+
+        // --- ტაბი 2 ლოგიკა (ინდივიდუალური) ---
+        function updateCalc2() {
+            let price = parseFloat(getEl('itemPrice2').value) || 0;
+            let vatRate = parseFloat(getEl('vatRate2').value) || 0;
+            let vatAmount = (price * vatRate) / 100;
+            let total = price + vatAmount;
+
+            getEl('previewPrice2').innerText = price.toFixed(2);
+            getEl('previewSubtotal2').innerText = price.toFixed(2);
+            getEl('previewVat2').innerText = vatAmount.toFixed(2);
+            getEl('previewTotal2').innerText = total.toFixed(2);
+            
+            let lang = getEl('langSelect2').value;
+            getEl('tVatLabel2').innerText = (lang == 'en' ? `VAT (${vatRate}%):` : (lang == 'ru' ? `НДС (${vatRate}%):` : `დღგ (${vatRate}%):`));
+        }
+
+        getEl('langSelect2').addEventListener('change', function() {
+            let t = texts[this.value];
+            getEl('invTitle2').innerText = t.invTitle;
+            getEl('tNum2').innerText = t.tNum;
+            getEl('tDate2').innerText = t.tDate;
+            getEl('tSellerTitle2').innerText = t.tSellerTitle;
+            getEl('tClientTitle2').innerText = t.tClientTitle;
+            getEl('thDesc2').innerText = t.thDesc;
+            getEl('thPrice2').innerText = t.thPrice;
+            getEl('tSubtotalLabel2').innerText = t.tSubtotalLabel + ":";
+            getEl('tTotalLabel2').innerText = t.tTotalLabel + ":";
+            getEl('downloadBtn2').innerText = t.downloadBtn;
+            updateCalc2();
+        });
+
+        getEl('invNum2').addEventListener('input', e => getEl('previewNum2').innerText = e.target.value);
+        getEl('invDate2').addEventListener('input', e => getEl('previewDate2').innerText = e.target.value);
+        getEl('clientName2').addEventListener('input', e => getEl('previewClient2').innerText = e.target.value);
+        getEl('clientCode2').addEventListener('input', e => getEl('previewClientCode2').innerText = e.target.value);
+        getEl('sellerName2').addEventListener('input', e => getEl('previewSeller2').innerText = e.target.value);
+        getEl('sellerCode2').addEventListener('input', e => getEl('previewSellerCode2').innerText = e.target.value);
+        getEl('sellerBank2').addEventListener('input', e => getEl('previewBank2').innerText = e.target.value);
+        getEl('itemDesc2').addEventListener('input', e => getEl('previewDesc2').innerText = e.target.value);
+        getEl('itemPrice2').addEventListener('input', updateCalc2);
+        getEl('vatRate2').addEventListener('change', updateCalc2);
+
+        getEl('logoInput2').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = ev => getEl('previewLogo2').src = ev.target.result;
+                reader.readAsDataURL(file);
+            }
+        });
+
+        getEl('downloadBtn2').addEventListener('click', function() {
+            html2pdf().from(getEl('invoice2')).set({
+                margin: 10, filename: `invoice_${getEl('invNum2').value.trim() || 'invoice'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).save();
+        });
+
+
+        // --- ტაბი 3 ლოგიკა (ნეთვორქერ თიმი) ---
+        function updateCalc3() {
+            let price = parseFloat(getEl('itemPrice3').value) || 0;
+            let vatRate = parseFloat(getEl('vatRate3').value) || 0;
+            let vatAmount = (price * vatRate) / 100;
+            let total = price + vatAmount;
+
+            getEl('previewPrice3').innerText = price.toFixed(2);
+            getEl('previewSubtotal3').innerText = price.toFixed(2);
+            getEl('previewVat3').innerText = vatAmount.toFixed(2);
+            getEl('previewTotal3').innerText = total.toFixed(2);
+            
+            let lang = getEl('langSelect3').value;
+            getEl('tVatLabel3').innerText = (lang == 'en' ? `VAT (${vatRate}%):` : (lang == 'ru' ? `НДС (${vatRate}%):` : `დღგ (${vatRate}%):`));
+        }
+
+        getEl('langSelect3').addEventListener('change', function() {
+            let t = texts[this.value];
+            getEl('invTitle3').innerText = t.invTitle;
+            getEl('tNum3').innerText = t.tNum;
+            getEl('tDate3').innerText = t.tDate;
+            getEl('tSellerTitle3').innerText = t.tSellerTitle;
+            getEl('tClientTitle3').innerText = t.tClientTitle;
+            getEl('thDesc3').innerText = t.thDesc;
+            getEl('thPrice3').innerText = t.thPrice;
+            getEl('tSubtotalLabel3').innerText = t.tSubtotalLabel + ":";
+            getEl('tTotalLabel3').innerText = t.tTotalLabel + ":";
+            getEl('downloadBtn3').innerText = t.downloadBtn;
+            updateCalc3();
+        });
+
+        getEl('invNum3').addEventListener('input', e => getEl('previewNum3').innerText = e.target.value);
+        getEl('invDate3').addEventListener('input', e => getEl('previewDate3').innerText = e.target.value);
+        getEl('clientName3').addEventListener('input', e => getEl('previewClient3').innerText = e.target.value);
+        getEl('clientCode3').addEventListener('input', e => getEl('previewClientCode3').innerText = e.target.value);
+        getEl('itemDesc3').addEventListener('input', e => getEl('previewDesc3').innerText = e.target.value);
+        getEl('itemPrice3').addEventListener('input', updateCalc3);
+        getEl('vatRate3').addEventListener('change', updateCalc3);
+
+        getEl('downloadBtn3').addEventListener('click', function() {
+            html2pdf().from(getEl('invoice3')).set({
+                margin: 10, filename: `invoice_${getEl('invNum3').value.trim() || 'invoice'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).save();
+        });
+
+
+        // --- ტაბი 4 ლოგიკა (პროდუქციის ინვოისი დინამიური პუნქტებით) ---
+        let productRowsData = [
+            { desc: "სამშენებლო მასალა", unit: "ცალი", unitPrice: 50, qty: 10 }
+        ];
+
+        function renderProductsForm() {
+            const container = getEl('productsContainer');
+            container.innerHTML = '';
+            productRowsData.forEach((item, index) => {
+                let div = document.createElement('div');
+                div.className = 'product-item-row';
+                div.innerHTML = `
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label>პროდუქციის დასახელება #${index + 1}:</label>
+                        <input type="text" class="p-desc" data-index="${index}" value="${item.desc}">
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <label>ერთეული:</label>
+                            <select class="p-unit" data-index="${index}">
+                                <option value="ცალი" ${item.unit === 'ცალი' ? 'selected' : ''}>ცალი</option>
+                                <option value="შეკვრა" ${item.unit === 'შეკვრა' ? 'selected' : ''}>შეკვრა</option>
+                                <option value="კუბი" ${item.unit === 'კუბი' ? 'selected' : ''}>კუბი</option>
+                                <option value="კგ" ${item.unit === 'კგ' ? 'selected' : ''}>კგ</option>
+                                <option value="მეტრი" ${item.unit === 'მეტრი' ? 'selected' : ''}>მეტრი</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>ერთ. ფასი (₾):</label>
+                            <input type="number" class="p-price" data-index="${index}" value="${item.unitPrice}" step="any">
+                        </div>
+                        <div style="flex: 1;">
+                            <label>რაოდენობა:</label>
+                            <input type="number" class="p-qty" data-index="${index}" value="${item.qty}" min="0" step="any">
+                        </div>
+                    </div>
+                    ${productRowsData.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeProductRow(${index})">წაშლა</button>` : ''}
+                `;
+                container.appendChild(div);
+            });
+
+            // ივენთების მიბმა ფორმის ველებზე
+            container.querySelectorAll('.p-desc').forEach(el => el.addEventListener('input', e => {
+                productRowsData[e.target.dataset.index].desc = e.target.value;
+                updateCalc4();
+            }));
+            container.querySelectorAll('.p-unit').forEach(el => el.addEventListener('change', e => {
+                productRowsData[e.target.dataset.index].unit = e.target.value;
+                updateCalc4();
+            }));
+            container.querySelectorAll('.p-price').forEach(el => el.addEventListener('input', e => {
+                productRowsData[e.target.dataset.index].unitPrice = parseFloat(e.target.value) || 0;
+                updateCalc4();
+            }));
+            container.querySelectorAll('.p-qty').forEach(el => el.addEventListener('input', e => {
+                productRowsData[e.target.dataset.index].qty = parseFloat(e.target.value) || 0;
+                updateCalc4();
+            }));
+        }
+
+        window.removeProductRow = function(index) {
+            productRowsData.splice(index, 1);
+            renderProductsForm();
+            updateCalc4();
+        }
+
+        getEl('addProductBtn').addEventListener('click', function() {
+            if (productRowsData.length >= 10) {
+                alert("მაქსიმუმ შესაძლებელია 10 პუნქტის დამატება!");
+                return;
+            }
+            productRowsData.push({ desc: "ახალი პროდუქტი", unit: "ცალი", unitPrice: 10, qty: 1 });
+            renderProductsForm();
+            updateCalc4();
+        });
+
+        function updateCalc4() {
+            let subtotal = 0;
+            let tbody = getEl('previewTableBody4');
+            tbody.innerHTML = '';
+
+            productRowsData.forEach(item => {
+                let lineTotal = item.qty * item.unitPrice;
+                subtotal += lineTotal;
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.desc}</td>
+                    <td style="text-align: center;">${item.unit}</td>
+                    <td style="text-align: right;">${item.unitPrice.toFixed(2)} ₾</td>
+                    <td style="text-align: center;">${item.qty}</td>
+                    <td style="text-align: right;">${lineTotal.toFixed(2)} ₾</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            let vatRate = parseFloat(getEl('vatRate4').value) || 0;
+            let vatAmount = (subtotal * vatRate) / 100;
+            let total = subtotal + vatAmount;
+
+            getEl('previewSubtotal4').innerText = subtotal.toFixed(2);
+            getEl('previewVat4').innerText = vatAmount.toFixed(2);
+            getEl('previewTotal4').innerText = total.toFixed(2);
+            
+            let lang = getEl('langSelect4').value;
+            getEl('tVatLabel4').innerText = (lang == 'en' ? `VAT (${vatRate}%):` : (lang == 'ru' ? `НДС (${vatRate}%):` : `დღგ (${vatRate}%):`));
+        }
+
+        getEl('langSelect4').addEventListener('change', function() {
+            let t = textsProduct[this.value];
+            getEl('invTitle4').innerText = t.invTitle;
+            getEl('tNum4').innerText = t.tNum;
+            getEl('tDate4').innerText = t.tDate;
+            getEl('tSellerTitle4').innerText = t.tSellerTitle;
+            getEl('tClientTitle4').innerText = t.tClientTitle;
+            getEl('thDesc4').innerText = t.thDesc;
+            getEl('thPrice4').innerText = t.thPrice;
+            getEl('tSubtotalLabel4').innerText = t.tSubtotalLabel + ":";
+            getEl('tTotalLabel4').innerText = t.tTotalLabel + ":";
+            getEl('downloadBtn4').innerText = t.downloadBtn;
+            updateCalc4();
+        });
+
+        getEl('invNum4').addEventListener('input', e => getEl('previewNum4').innerText = e.target.value);
+        getEl('invDate4').addEventListener('input', e => getEl('previewDate4').innerText = e.target.value);
+        getEl('clientName4').addEventListener('input', e => getEl('previewClient4').innerText = e.target.value);
+        getEl('clientCode4').addEventListener('input', e => getEl('previewClientCode4').innerText = e.target.value);
+        getEl('sellerName4').addEventListener('input', e => getEl('previewSeller4').innerText = e.target.value);
+        getEl('sellerCode4').addEventListener('input', e => getEl('previewSellerCode4').innerText = e.target.value);
+        getEl('sellerBank4').addEventListener('input', e => getEl('previewBank4').innerText = e.target.value);
+        getEl('vatRate4').addEventListener('change', updateCalc4);
+
+        getEl('logoInput4').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = ev => getEl('previewLogo4').src = ev.target.result;
+                reader.readAsDataURL(file);
+            }
+        });
+
+        getEl('downloadBtn4').addEventListener('click', function() {
+            html2pdf().from(getEl('invoice4')).set({
+                margin: 10, filename: `product_invoice_${getEl('invNum4').value.trim() || 'invoice'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).save();
+        });
+
+        // ინიციალიზაცია გვერდის ჩატვირთვისას
+        renderProductsForm();
+        updateCalc4();
+
+
+        // --- მასობრივი გენერაცია (ტაბი 1) ---
+        getEl('bulkDownloadBtn').addEventListener('click', async function() {
+            const fileInput = getEl('csvInput');
+            if (!fileInput.files.length) {
+                alert("გთხოვთ ატვირთოთ CSV ფაილი!");
+                return;
+            }
+
+            const text = await fileInput.files[0].text();
+            const rows = text.split('\n').map(r => r.trim()).filter(r => r);
+            const zip = new JSZip();
+            const folder = zip.folder("invoices");
+            const progress = getEl('progressText');
+
+            let startIndex = rows[0].toLowerCase().includes('client') ? 1 : 0;
+            let totalClients = rows.length - startIndex;
+
+            for (let i = startIndex; i < rows.length; i++) {
+                let parts = rows[i].split(',');
+                if (parts.length < 2) continue;
+                
+                let clientName = parts[0].trim();
+                let clientCode = parts[1] ? parts[1].trim() : "";
+                let amount = parts[2] ? parseFloat(parts[2].trim()) || 0 : (parseFloat(parts[1].trim()) || 0);
+                let invNumStr = parts[3] ? parts[3].trim() : `№ 2026-${(i - startIndex + 1).toString().padStart(3, '0')}`;
+                let invDateStr = parts[4] ? parts[4].trim() : new Date().toISOString().split('T')[0];
+
+                let vatAmount = (amount * 18) / 100;
+                let total = amount + vatAmount;
+
+                getEl('bPreviewClient').innerText = clientName;
+                getEl('bPreviewClientCode').innerText = clientCode;
+                getEl('bPreviewNum').innerText = invNumStr;
+                getEl('bPreviewDate').innerText = invDateStr;
+                getEl('bPreviewPrice').innerText = amount.toFixed(2);
+                getEl('bPreviewSubtotal').innerText = amount.toFixed(2);
+                getEl('bPreviewVat').innerText = vatAmount.toFixed(2);
+                getEl('bPreviewTotal').innerText = total.toFixed(2);
+
+                progress.innerText = `გენერირდება: ${i - startIndex + 1} / ${totalClients} (${clientName})`;
+                await new Promise(r => setTimeout(r, 60));
+
+                let pdfBlob = await html2pdf().from(getEl('bulkInvoice')).set({
+                    margin: 10,
+                    image: { type: 'jpeg', quality: 0.95 },
+                    html2canvas: { scale: 1.5, useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                }).output('blob');
+
+                folder.file(`invoice_${clientName.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_")}.pdf`, pdfBlob);
+            }
+
+            progress.innerText = "მიმდინარეობს ZIP არქივის შექმნა...";
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                let link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = "invoices_archive.zip";
+                link.click();
+                progress.innerText = "ყველა ინვოისი წარმატებით ჩამოიტვირთა!";
+            });
+        });
+    </script>
+</body>
+</html>
