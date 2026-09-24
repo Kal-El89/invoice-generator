@@ -99,7 +99,9 @@ function updateCalc3() {
 }
 
 getEl('langSelect3').addEventListener('change', function() {
-    let t = texts[this.value];
+    let lang = this.value;
+    let t = texts[lang];
+    
     getEl('invTitle3').innerText = t.invTitle;
     getEl('tNum3').innerText = t.tNum;
     getEl('tDate3').innerText = t.tDate;
@@ -110,6 +112,18 @@ getEl('langSelect3').addEventListener('change', function() {
     getEl('tSubtotalLabel3').innerText = t.tSubtotalLabel + ":";
     getEl('tTotalLabel3').innerText = t.tTotalLabel + ":";
     getEl('downloadBtn3').innerText = t.downloadBtn;
+
+    // კომპანიის სახელისა და ს/კ ველების დინამიური შეცვლა
+    if (lang === 'ka') {
+        getEl('previewSellerName3').innerText = "შპს ნეთვორქერ თიმი";
+        getEl('tSellerCodeLabel3').innerText = "ს/კ";
+        getEl('tClientCodeLabel3').innerText = "ს/კ";
+    } else {
+        getEl('previewSellerName3').innerText = "Networker Team LLC";
+        getEl('tSellerCodeLabel3').innerText = "ID";
+        getEl('tClientCodeLabel3').innerText = "ID";
+    }
+
     updateCalc3();
 });
 
