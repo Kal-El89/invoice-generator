@@ -76,8 +76,9 @@ getEl('downloadBtn2').addEventListener('click', function() {
     html2pdf().from(getEl('invoice2')).set({
         margin: 10, filename: `invoice_${getEl('invNum2').value.trim() || 'invoice'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        enableLinks: true
     }).save();
 });
 
@@ -113,7 +114,6 @@ getEl('langSelect3').addEventListener('change', function() {
     getEl('tTotalLabel3').innerText = t.tTotalLabel + ":";
     getEl('downloadBtn3').innerText = t.downloadBtn;
 
-    // კომპანიის სახელისა და ს/კ ველების დინამიური შეცვლა
     if (lang === 'ka') {
         getEl('previewSellerName3').innerText = "შპს ნეთვორქერ თიმი";
         getEl('tSellerCodeLabel3').innerText = "ს/კ";
@@ -139,8 +139,9 @@ getEl('downloadBtn3').addEventListener('click', function() {
     html2pdf().from(getEl('invoice3')).set({
         margin: 10, filename: `invoice_${getEl('invNum3').value.trim() || 'invoice'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        enableLinks: true
     }).save();
 });
 
@@ -289,8 +290,9 @@ getEl('downloadBtn4').addEventListener('click', function() {
     html2pdf().from(getEl('invoice4')).set({
         margin: 10, filename: `product_invoice_${getEl('invNum4').value.trim() || 'invoice'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        enableLinks: true
     }).save();
 });
 
@@ -343,8 +345,9 @@ getEl('bulkDownloadBtn').addEventListener('click', async function() {
         let pdfBlob = await html2pdf().from(getEl('bulkInvoice')).set({
             margin: 10,
             image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 1.5, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            html2canvas: { scale: 1.5, useCORS: true, letterRendering: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+            enableLinks: true
         }).output('blob');
 
         folder.file(`invoice_${clientName.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_")}.pdf`, pdfBlob);
