@@ -73,8 +73,12 @@ getEl('logoInput2').addEventListener('change', function(e) {
 });
 
 getEl('downloadBtn2').addEventListener('click', function() {
+    let clientName = getEl('clientName2').value.trim() || 'client';
+    let totalAmount = getEl('previewTotal2').innerText;
+    let safeFileName = `${clientName}_${totalAmount} ლარი`.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
+
     html2pdf().from(getEl('invoice2')).set({
-        margin: 10, filename: `invoice_${getEl('invNum2').value.trim() || 'invoice'}.pdf`,
+        margin: 10, filename: `${safeFileName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
@@ -136,8 +140,12 @@ getEl('itemPrice3').addEventListener('input', updateCalc3);
 getEl('vatRate3').addEventListener('change', updateCalc3);
 
 getEl('downloadBtn3').addEventListener('click', function() {
+    let clientName = getEl('clientName3').value.trim() || 'client';
+    let totalAmount = getEl('previewTotal3').innerText;
+    let safeFileName = `${clientName}_${totalAmount} ლარი`.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
+
     html2pdf().from(getEl('invoice3')).set({
-        margin: 10, filename: `invoice_${getEl('invNum3').value.trim() || 'invoice'}.pdf`,
+        margin: 10, filename: `${safeFileName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
@@ -287,8 +295,12 @@ getEl('logoInput4').addEventListener('change', function(e) {
 });
 
 getEl('downloadBtn4').addEventListener('click', function() {
+    let clientName = getEl('clientName4').value.trim() || 'client';
+    let totalAmount = getEl('previewTotal4').innerText;
+    let safeFileName = `${clientName}_${totalAmount} ლარი`.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
+
     html2pdf().from(getEl('invoice4')).set({
-        margin: 10, filename: `product_invoice_${getEl('invNum4').value.trim() || 'invoice'}.pdf`,
+        margin: 10, filename: `${safeFileName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
@@ -350,7 +362,11 @@ getEl('bulkDownloadBtn').addEventListener('click', async function() {
             enableLinks: true
         }).output('blob');
 
-        folder.file(`invoice_${clientName.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_")}.pdf`, pdfBlob);
+        // ფაილის სახელი: მყიდველი და სულ თანხა
+        let fileNameStr = `${clientName}_${total.toFixed(2)} ლარი`;
+        let safeFileName = fileNameStr.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
+
+        folder.file(`${safeFileName}.pdf`, pdfBlob);
     }
 
     progress.innerText = "მიმდინარეობს ZIP არქივის შექმნა...";
