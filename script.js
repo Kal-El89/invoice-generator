@@ -7,6 +7,17 @@ function switchTab(index) {
     });
 }
 
+// ფერის თემის ცვლილების ზოგადი ლოგიკა
+function setupThemeSwitcher(selectorId, targetContainerId) {
+    const selectEl = getEl(selectorId);
+    const containerEl = getEl(targetContainerId);
+    if (selectEl && containerEl) {
+        selectEl.addEventListener('change', function() {
+            containerEl.className = 'invoice-container ' + this.value;
+        });
+    }
+}
+
 const texts = {
     ka: { invTitle: "ინვოისი", tNum: "ნომერი", tDate: "თარიღი", tSellerTitle: "გამყიდველი", tClientTitle: "მყიდველი", thDesc: "მომსახურების დასახელება", thPrice: "თანხა", tSubtotalLabel: "მომსახურების თანხა (დღგ-ს გარეშე)", tVatLabel: "დღგ", tTotalLabel: "სულ გადასახდელი (Total)", downloadBtn: "PDF-ის გადმოწერა" },
     en: { invTitle: "INVOICE", tNum: "Number", tDate: "Date", tSellerTitle: "Seller", tClientTitle: "Client", thDesc: "Description", thPrice: "Amount", tSubtotalLabel: "Subtotal (Excl. VAT)", tVatLabel: "VAT", tTotalLabel: "Total Amount Due", downloadBtn: "Download PDF" },
@@ -21,7 +32,12 @@ const textsProduct = {
 
 const getEl = id => document.getElementById(id);
 
+// --- ტაბი 1 ფერის სელექტორი ---
+setupThemeSwitcher('themeSelect0', 'bulkInvoice');
+
 // --- ტაბი 2 ლოგიკა (ინდივიდუალური) ---
+setupThemeSwitcher('themeSelect2', 'invoice2');
+
 function updateCalc2() {
     let price = parseFloat(getEl('itemPrice2').value) || 0;
     let vatRate = parseFloat(getEl('vatRate2').value) || 0;
@@ -88,6 +104,8 @@ getEl('downloadBtn2').addEventListener('click', function() {
 
 
 // --- ტაბი 3 ლოგიკა (ნეთვორქერ თიმი) ---
+setupThemeSwitcher('themeSelect3', 'invoice3');
+
 function updateCalc3() {
     let price = parseFloat(getEl('itemPrice3').value) || 0;
     let vatRate = parseFloat(getEl('vatRate3').value) || 0;
@@ -155,6 +173,8 @@ getEl('downloadBtn3').addEventListener('click', function() {
 
 
 // --- ტაბი 4 ლოგიკა (პროდუქციის ინვოისი დინამიური პუნქტებით) ---
+setupThemeSwitcher('themeSelect4', 'invoice4');
+
 let productRowsData = [
     { desc: "სამშენებლო მასალა", unit: "ცალი", unitPrice: 50, qty: 10 }
 ];
@@ -362,7 +382,6 @@ getEl('bulkDownloadBtn').addEventListener('click', async function() {
             enableLinks: true
         }).output('blob');
 
-        // ფაილის სახელი: მყიდველი და სულ თანხა
         let fileNameStr = `${clientName}_${total.toFixed(2)} ლარი`;
         let safeFileName = fileNameStr.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
 

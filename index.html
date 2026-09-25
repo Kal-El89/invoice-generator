@@ -23,6 +23,16 @@
         <div class="form-container" style="max-width: 600px; margin: 0 auto;">
             <h2>მასობრივი გენერაცია</h2>
             
+            <div class="form-group">
+                <label>ფერთა პალიტრა / Theme:</label>
+                <select id="themeSelect0">
+                    <option value="theme-blue" selected>ძირითადი ლურჯი (ორიგინალი)</option>
+                    <option value="theme-emerald">ზურმუხტისფერი მწვანე</option>
+                    <option value="theme-dark">მუქი გრაფიტი</option>
+                    <option value="theme-purple">პრემიუმ იისფერი</option>
+                </select>
+            </div>
+
             <div class="instruction-box">
                 <strong>მონაცემთა მომზადების ინსტრუქცია:</strong>
                 <p style="margin: 5px 0;">შექმენით ტექსტური ფაილი <strong>.csv</strong> გაფართოებით (მაგალითად, <code>invoices.csv</code>) და თითოეულ ხაზზე ჩაწერეთ მონაცემები შემდეგი თანმიმდევრობით:</p>
@@ -45,11 +55,21 @@
         </div>
     </div>
 
-    <!-- ტაბი 2: ინდივიდუალური ინვოისი (სრული ველებით) -->
+    <!-- ტაბი 2: ინდივიდუალური ინვოისი -->
     <div id="tab1" class="tab-content">
         <div class="form-container">
             <h2>ინდივიდუალური ინვოისი</h2>
             
+            <div class="form-group">
+                <label>ფერთა პალიტრა / Theme:</label>
+                <select id="themeSelect2">
+                    <option value="theme-blue" selected>ძირითადი ლურჯი (ორიგინალი)</option>
+                    <option value="theme-emerald">ზურმუხტისფერი მწვანე</option>
+                    <option value="theme-dark">მუქი გრაფიტი</option>
+                    <option value="theme-purple">პრემიუმ იისფერი</option>
+                </select>
+            </div>
+
             <div class="form-group">
                 <label>ენა / Language:</label>
                 <select id="langSelect2">
@@ -117,7 +137,7 @@
         </div>
 
         <div class="invoice-wrapper">
-            <div class="invoice-container" id="invoice2">
+            <div class="invoice-container theme-blue" id="invoice2">
                 <div class="invoice-header">
                     <div>
                         <h2 id="invTitle2" style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
@@ -182,6 +202,16 @@
             <h2>შპს ნეთვორქერ თიმი - ინვოისი</h2>
             
             <div class="form-group">
+                <label>ფერთა პალიტრა / Theme:</label>
+                <select id="themeSelect3">
+                    <option value="theme-blue" selected>ძირითადი ლურჯი (ორიგინალი)</option>
+                    <option value="theme-emerald">ზურმუხტისფერი მწვანე</option>
+                    <option value="theme-dark">მუქი გრაფიტი</option>
+                    <option value="theme-purple">პრემიუმ იისფერი</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>ენა / Language:</label>
                 <select id="langSelect3">
                     <option value="ka">ქართული</option>
@@ -237,7 +267,7 @@
         </div>
 
         <div class="invoice-wrapper">
-            <div class="invoice-container" id="invoice3">
+            <div class="invoice-container theme-blue" id="invoice3">
                 <div class="invoice-header">
                     <div>
                         <h2 id="invTitle3" style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
@@ -303,6 +333,16 @@
             <h2>პროდუქციის ინვოისი</h2>
             
             <div class="form-group">
+                <label>ფერთა პალიტრა / Theme:</label>
+                <select id="themeSelect4">
+                    <option value="theme-blue" selected>ძირითადი ლურჯი (ორიგინალი)</option>
+                    <option value="theme-emerald">ზურმუხტისფერი მწვანე</option>
+                    <option value="theme-dark">მუქი გრაფიტი</option>
+                    <option value="theme-purple">პრემიუმ იისფერი</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>ენა / Language:</label>
                 <select id="langSelect4">
                     <option value="ka">ქართული</option>
@@ -366,7 +406,7 @@
         </div>
 
         <div class="invoice-wrapper">
-            <div class="invoice-container" id="invoice4">
+            <div class="invoice-container theme-blue" id="invoice4">
                 <div class="invoice-header">
                     <div>
                         <h2 id="invTitle4" style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
@@ -427,7 +467,7 @@
 
     <!-- დამალული შაბლონი მასობრივი გენერაციისთვის -->
     <div id="hiddenInvoiceContainer" style="position: absolute; left: -9999px; top: -9999px;">
-        <div class="invoice-container" id="bulkInvoice" style="width: 700px; background: white; padding: 40px;">
+        <div class="invoice-container theme-blue" id="bulkInvoice" style="width: 700px; background: white; padding: 40px;">
             <div class="invoice-header">
                 <div>
                     <h2 style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
