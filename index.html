@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <title>პროფესიონალური ინვოისების გენერატორი</title>
     <!-- საჭირო ბიბლიოთეკები -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="lib/pdfmake.min.js"></script>
+    <script src="fonts.js"></script>
+    <script src="invoice-pdf.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -153,13 +155,13 @@
                     <div class="company-info">
                         <strong><span id="tSellerTitle2">გამყიდველი</span>:</strong><br>
                         <span id="previewSeller2">შპს გამყიდველი</span><br>
-                        <strong>ს/კ:</strong> <span id="previewSellerCode2">123456789</span><br>
+                        <strong><span id="tSellerCodeLabel2">ს/კ</span>:</strong> <span id="previewSellerCode2">123456789</span><br>
                         <strong>IBAN:</strong> <span id="previewBank2">GE00TB0000000000000000</span>
                     </div>
                     <div class="client-info" style="text-align: right;">
                         <strong><span id="tClientTitle2">მყიდველი</span>:</strong><br>
                         <span id="previewClient2" style="font-weight: bold; font-size: 15px;">-</span><br>
-                        <span>ს/კ: <span id="previewClientCode2">-</span></span>
+                        <span><span id="tClientCodeLabel2">ს/კ</span>: <span id="previewClientCode2">-</span></span>
                     </div>
                 </div>
 
@@ -422,13 +424,13 @@
                     <div class="company-info">
                         <strong><span id="tSellerTitle4">გამყიდველი</span>:</strong><br>
                         <span id="previewSeller4">შპს გამყიდველი</span><br>
-                        <strong>ს/კ:</strong> <span id="previewSellerCode4">123456789</span><br>
+                        <strong><span id="tSellerCodeLabel4">ს/კ</span>:</strong> <span id="previewSellerCode4">123456789</span><br>
                         <strong>IBAN:</strong> <span id="previewBank4">GE00TB0000000000000000</span>
                     </div>
                     <div class="client-info" style="text-align: right;">
                         <strong><span id="tClientTitle4">მყიდველი</span>:</strong><br>
                         <span id="previewClient4" style="font-weight: bold; font-size: 15px;">-</span><br>
-                        <span>ს/კ: <span id="previewClientCode4">-</span></span>
+                        <span><span id="tClientCodeLabel4">ს/კ</span>: <span id="previewClientCode4">-</span></span>
                     </div>
                 </div>
 
@@ -436,9 +438,9 @@
                     <thead>
                         <tr>
                             <th id="thDesc4">პროდუქციის დასახელება</th>
-                            <th style="width: 80px; text-align: center;">ერთეული</th>
-                            <th style="width: 100px; text-align: right;">ერთ. ფასი</th>
-                            <th style="width: 80px; text-align: center;">რაოდენობა</th>
+                            <th id="thUnit4" style="width: 80px; text-align: center;">ერთეული</th>
+                            <th id="thUnitPrice4" style="width: 100px; text-align: right;">ერთ. ფასი</th>
+                            <th id="thQty4" style="width: 80px; text-align: center;">რაოდენობა</th>
                             <th id="thPrice4" style="width: 100px; text-align: right;">თანხა</th>
                         </tr>
                     </thead>
@@ -460,67 +462,6 @@
                         <span id="tTotalLabel4">სულ გადასახდელი (Total):</span>
                         <span><strong id="previewTotal4">0.00</strong> ₾</span>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- დამალული შაბლონი მასობრივი გენერაციისთვის -->
-    <div id="hiddenInvoiceContainer" style="position: absolute; left: -9999px; top: -9999px;">
-        <div class="invoice-container theme-blue" id="bulkInvoice" style="width: 700px; background: white; padding: 40px;">
-            <div class="invoice-header">
-                <div>
-                    <h2 style="color: var(--primary-color); margin: 0 0 10px 0;">ინვოისი / INVOICE</h2>
-                    <p style="margin: 3px 0;"><strong>ნომერი:</strong> <span id="bPreviewNum">№ 2026-001</span></p>
-                    <p style="margin: 3px 0;"><strong>თარიღი:</strong> <span id="bPreviewDate">-</span></p>
-                </div>
-                <div>
-                    <img src="logo/last ver log.svg" class="invoice-logo" alt="Logo">
-                </div>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-                <div class="company-info">
-                    <strong>გამყიდველი:</strong><br>
-                    შპს ნეთვორქერ თიმი<br>
-                    <strong>ს/კ:</strong> 405813767<br>
-                    <strong>IBAN 1:</strong> GE84TB7487536080100009<br>
-                    <strong>IBAN 2:</strong> GE84BG0000000610898120
-                </div>
-                <div class="client-info" style="text-align: right;">
-                    <strong>მყიდველი:</strong><br>
-                    <span id="bPreviewClient" style="font-weight: bold; font-size: 15px;">-</span><br>
-                    <span>ს/კ: <span id="bPreviewClientCode">-</span></span>
-                </div>
-            </div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>მომსახურების დასახელება</th>
-                        <th style="width: 140px; text-align: right;">თანხა</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>ყოველთვიური მომსახურება</td>
-                        <td style="text-align: right;"><span id="bPreviewPrice">1000.00</span> ₾</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <div class="totals-section">
-                <div class="totals-row">
-                    <span>მომსახურების თანხა (დღგ-ს გარეშე):</span>
-                    <span><strong id="bPreviewSubtotal">1000.00</strong> ₾</span>
-                </div>
-                <div class="totals-row">
-                    <span>დღგ (18%):</span>
-                    <span><strong id="bPreviewVat">180.00</strong> ₾</span>
-                </div>
-                <div class="totals-row final">
-                    <span>სულ გადასახდელი (Total):</span>
-                    <span><strong id="bPreviewTotal">1180.00</strong> ₾</span>
                 </div>
             </div>
         </div>

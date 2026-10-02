@@ -1,3 +1,66 @@
+/* ===================== Проверка файлов ===================== */
+// Если какой-то файл не загрузился, показываем понятное сообщение вместо «молчаливой» поломки
+function showBanner(text) {
+    let box = document.getElementById('depBanner');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'depBanner';
+        box.style.cssText = 'position:sticky;top:0;z-index:9999;background:#c53030;color:#fff;padding:12px 16px;' +
+            'margin:-20px -20px 16px -20px;font:14px/1.5 sans-serif;white-space:pre-line;';
+        document.body.insertBefore(box, document.body.firstChild);
+    }
+    box.textContent = text;
+}
+
+(function checkFiles() {
+    const missing = [];
+    if (typeof InvoicePDF === 'undefined') missing.push('invoice-pdf.js');
+    if (typeof pdfMake === 'undefined') missing.push('lib/pdfmake.min.js');
+    if (!window.INVOICE_FONTS) missing.push('fonts.js');
+    if (!missing.length) return;
+    showBanner(
+        'ფაილები ვერ ჩაიტვირთა / Не загружены файлы: ' + missing.join(', ') + '\n' +
+        'ჩადეთ ისინი index.html-ის გვერდით (lib საქაღალდიანად), შეცვალეთ index.html ახალით და დააჭირეთ Ctrl+F5.\n' +
+        'Положите их рядом с index.html (папку lib целиком), замените index.html на новый и нажмите Ctrl+F5.'
+    );
+})();
+if (typeof InvoicePDF === 'undefined') throw new Error('invoice-pdf.js не загружен');
+
+// Любая другая ошибка JS тоже показывается на странице (после проверки файлов, чтобы не затирать её список)
+window.addEventListener('error', e => showBanner('JS შეცდომა / Ошибка JS: ' + e.message));
+
+/* ===================== Общие настройки ===================== */
+const { I18N, UNITS, round2, fmt, calcTotals, unitLabel, vatLabel, makeFileName, buildDocDefinition } = InvoicePDF;
+const getEl = id => document.getElementById(id);
+
+// pdfmake: подключаем встроенные шрифты (fonts.js). Благодаря им грузинский, кириллица и ₾
+// записываются в PDF как настоящий текст, который можно копировать.
+const pdfReady = typeof pdfMake !== 'undefined' && !!window.INVOICE_FONTS;
+if (pdfReady) {
+    pdfMake.vfs = Object.assign({}, window.INVOICE_FONTS);
+    pdfMake.fonts = {
+        InvoiceSans: {
+            normal: 'InvoiceSans-Regular.ttf',
+            bold: 'InvoiceSans-Bold.ttf',
+            italics: 'InvoiceSans-Regular.ttf',
+            bolditalics: 'InvoiceSans-Bold.ttf'
+        }
+    };
+}
+
+// Постоянные реквизиты «შპს ნეთვორქერ თიმი» (вкладка 3 и массовая генерация)
+function networkerSeller(lang) {
+    return {
+        name: lang === 'ka' ? 'შპს ნეთვორქერ თიმი' : 'Networker Team LLC',
+        code: '405813767',
+        ibans: [
+            { label: 'IBAN 1:', value: 'GE84TB7487536080100009' },
+            { label: 'IBAN 2:', value: 'GE84BG0000000610898120' }
+        ]
+    };
+}
+const NETWORKER_LOGO_URL = 'logo/last ver log.svg';
+
 function switchTab(index) {
     const tabs = document.querySelectorAll('.tab-content');
     const btns = document.querySelectorAll('.tab-btn');
@@ -7,393 +70,467 @@ function switchTab(index) {
     });
 }
 
-// ფერის თემის ცვლილების ზოგადი ლოგიკა
+// ფერის თემის ცვლილების ზოგადი ლოგიკა (превью на странице)
 function setupThemeSwitcher(selectorId, targetContainerId) {
     const selectEl = getEl(selectorId);
     const containerEl = getEl(targetContainerId);
     if (selectEl && containerEl) {
-        selectEl.addEventListener('change', function() {
+        selectEl.addEventListener('change', function () {
             containerEl.className = 'invoice-container ' + this.value;
         });
     }
 }
 
-const texts = {
-    ka: { invTitle: "ინვოისი", tNum: "ნომერი", tDate: "თარიღი", tSellerTitle: "გამყიდველი", tClientTitle: "მყიდველი", thDesc: "მომსახურების დასახელება", thPrice: "თანხა", tSubtotalLabel: "მომსახურების თანხა (დღგ-ს გარეშე)", tVatLabel: "დღგ", tTotalLabel: "სულ გადასახდელი (Total)", downloadBtn: "PDF-ის გადმოწერა" },
-    en: { invTitle: "INVOICE", tNum: "Number", tDate: "Date", tSellerTitle: "Seller", tClientTitle: "Client", thDesc: "Description", thPrice: "Amount", tSubtotalLabel: "Subtotal (Excl. VAT)", tVatLabel: "VAT", tTotalLabel: "Total Amount Due", downloadBtn: "Download PDF" },
-    ru: { invTitle: "СЧЕТ-ФАКТУРА", tNum: "Номер", tDate: "Дата", tSellerTitle: "Продавец", tClientTitle: "Покупатель", thDesc: "Описание услуг", thPrice: "Сумма", tSubtotalLabel: "Сумма услуг (без НДС)", tVatLabel: "НДС", tTotalLabel: "Всего к оплате (Total)", downloadBtn: "Скачать PDF" }
-};
-
-const textsProduct = {
-    ka: { invTitle: "ინვოისი", tNum: "ნომერი", tDate: "თარიღი", tSellerTitle: "გამყიდველი", tClientTitle: "მყიდველი", thDesc: "პროდუქციის დასახელება", thPrice: "თანხა", tSubtotalLabel: "პროდუქციის თანხა (დღგ-ს გარეშე)", tVatLabel: "დღგ", tTotalLabel: "სულ გადასახდელი (Total)", downloadBtn: "PDF-ის გადმოწერა" },
-    en: { invTitle: "INVOICE", tNum: "Number", tDate: "Date", tSellerTitle: "Seller", tClientTitle: "Client", thDesc: "Product Description", thPrice: "Amount", tSubtotalLabel: "Subtotal (Excl. VAT)", tVatLabel: "VAT", tTotalLabel: "Total Amount Due", downloadBtn: "Download PDF" },
-    ru: { invTitle: "СЧЕТ-ФАКТУРА", tNum: "Номер", tDate: "Дата", tSellerTitle: "Продавец", tClientTitle: "Покупатель", thDesc: "Наименование продукции", thPrice: "Сумма", tSubtotalLabel: "Сумма продукции (без НДС)", tVatLabel: "НДС", tTotalLabel: "Всего к оплате (Total)", downloadBtn: "Скачать PDF" }
-};
-
-const getEl = id => document.getElementById(id);
-
-// --- ტაბი 1 ფერის სელექტორი ---
-setupThemeSwitcher('themeSelect0', 'bulkInvoice');
-
-// --- ტაბი 2 ლოგიკა (ინდივიდუალური) ---
-setupThemeSwitcher('themeSelect2', 'invoice2');
-
-function updateCalc2() {
-    let price = parseFloat(getEl('itemPrice2').value) || 0;
-    let vatRate = parseFloat(getEl('vatRate2').value) || 0;
-    let vatAmount = (price * vatRate) / 100;
-    let total = price + vatAmount;
-
-    getEl('previewPrice2').innerText = price.toFixed(2);
-    getEl('previewSubtotal2').innerText = price.toFixed(2);
-    getEl('previewVat2').innerText = vatAmount.toFixed(2);
-    getEl('previewTotal2').innerText = total.toFixed(2);
-    
-    let lang = getEl('langSelect2').value;
-    getEl('tVatLabel2').innerText = (lang == 'en' ? `VAT (${vatRate}%):` : (lang == 'ru' ? `НДС (${vatRate}%):` : `დღგ (${vatRate}%):`));
+/* ===================== Логотипы ===================== */
+// Любое изображение (PNG, JPG, SVG, WebP...) -> PNG dataURL, который понимает pdfmake
+function imageToPngDataUrl(src, maxWidth = 800) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                let w = img.naturalWidth || img.width || 300;
+                let h = img.naturalHeight || img.height || 100;
+                const k = Math.min(1, maxWidth / w);
+                w = Math.round(w * k); h = Math.round(h * k);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/png'));
+            } catch (err) { reject(err); }
+        };
+        img.onerror = () => reject(new Error('Не удалось загрузить изображение: ' + src));
+        img.src = src;
+    });
 }
 
-getEl('langSelect2').addEventListener('change', function() {
-    let t = texts[this.value];
-    getEl('invTitle2').innerText = t.invTitle;
-    getEl('tNum2').innerText = t.tNum;
-    getEl('tDate2').innerText = t.tDate;
-    getEl('tSellerTitle2').innerText = t.tSellerTitle;
-    getEl('tClientTitle2').innerText = t.tClientTitle;
-    getEl('thDesc2').innerText = t.thDesc;
-    getEl('thPrice2').innerText = t.thPrice;
-    getEl('tSubtotalLabel2').innerText = t.tSubtotalLabel + ":";
-    getEl('tTotalLabel2').innerText = t.tTotalLabel + ":";
-    getEl('downloadBtn2').innerText = t.downloadBtn;
-    updateCalc2();
-});
-
-getEl('invNum2').addEventListener('input', e => getEl('previewNum2').innerText = e.target.value);
-getEl('invDate2').addEventListener('input', e => getEl('previewDate2').innerText = e.target.value);
-getEl('clientName2').addEventListener('input', e => getEl('previewClient2').innerText = e.target.value);
-getEl('clientCode2').addEventListener('input', e => getEl('previewClientCode2').innerText = e.target.value);
-getEl('sellerName2').addEventListener('input', e => getEl('previewSeller2').innerText = e.target.value);
-getEl('sellerCode2').addEventListener('input', e => getEl('previewSellerCode2').innerText = e.target.value);
-getEl('sellerBank2').addEventListener('input', e => getEl('previewBank2').innerText = e.target.value);
-getEl('itemDesc2').addEventListener('input', e => getEl('previewDesc2').innerText = e.target.value);
-getEl('itemPrice2').addEventListener('input', updateCalc2);
-getEl('vatRate2').addEventListener('change', updateCalc2);
-
-getEl('logoInput2').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = ev => getEl('previewLogo2').src = ev.target.result;
+        reader.onload = ev => resolve(ev.target.result);
+        reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
-    }
-});
-
-getEl('downloadBtn2').addEventListener('click', function() {
-    let clientName = getEl('clientName2').value.trim() || 'client';
-    let totalAmount = getEl('previewTotal2').innerText;
-    let safeFileName = `${clientName}_${totalAmount} ლარი`.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
-
-    html2pdf().from(getEl('invoice2')).set({
-        margin: 10, filename: `${safeFileName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        enableLinks: true
-    }).save();
-});
-
-
-// --- ტაბი 3 ლოგიკა (ნეთვორქერ თიმი) ---
-setupThemeSwitcher('themeSelect3', 'invoice3');
-
-function updateCalc3() {
-    let price = parseFloat(getEl('itemPrice3').value) || 0;
-    let vatRate = parseFloat(getEl('vatRate3').value) || 0;
-    let vatAmount = (price * vatRate) / 100;
-    let total = price + vatAmount;
-
-    getEl('previewPrice3').innerText = price.toFixed(2);
-    getEl('previewSubtotal3').innerText = price.toFixed(2);
-    getEl('previewVat3').innerText = vatAmount.toFixed(2);
-    getEl('previewTotal3').innerText = total.toFixed(2);
-    
-    let lang = getEl('langSelect3').value;
-    getEl('tVatLabel3').innerText = (lang == 'en' ? `VAT (${vatRate}%):` : (lang == 'ru' ? `НДС (${vatRate}%):` : `დღგ (${vatRate}%):`));
+    });
 }
 
-getEl('langSelect3').addEventListener('change', function() {
-    let lang = this.value;
-    let t = texts[lang];
-    
-    getEl('invTitle3').innerText = t.invTitle;
-    getEl('tNum3').innerText = t.tNum;
-    getEl('tDate3').innerText = t.tDate;
-    getEl('tSellerTitle3').innerText = t.tSellerTitle;
-    getEl('tClientTitle3').innerText = t.tClientTitle;
-    getEl('thDesc3').innerText = t.thDesc;
-    getEl('thPrice3').innerText = t.thPrice;
-    getEl('tSubtotalLabel3').innerText = t.tSubtotalLabel + ":";
-    getEl('tTotalLabel3').innerText = t.tTotalLabel + ":";
-    getEl('downloadBtn3').innerText = t.downloadBtn;
+let networkerLogoPromise = null;
+function getNetworkerLogo() {
+    if (!networkerLogoPromise) {
+        networkerLogoPromise = imageToPngDataUrl(encodeURI(NETWORKER_LOGO_URL)).catch(err => {
+            console.warn('Логотип не загружен, PDF будет без логотипа. Откройте страницу через http(s)/localhost, а не file://', err);
+            return null;
+        });
+    }
+    return networkerLogoPromise;
+}
 
-    if (lang === 'ka') {
-        getEl('previewSellerName3').innerText = "შპს ნეთვორქერ თიმი";
-        getEl('tSellerCodeLabel3').innerText = "ს/კ";
-        getEl('tClientCodeLabel3').innerText = "ს/კ";
-    } else {
-        getEl('previewSellerName3').innerText = "Networker Team LLC";
-        getEl('tSellerCodeLabel3').innerText = "ID";
-        getEl('tClientCodeLabel3').innerText = "ID";
+// Загрузка собственного логотипа (вкладки 2 и 4)
+const uploadedLogos = {};
+function setupLogoInput(n) {
+    getEl('logoInput' + n).addEventListener('change', async function (e) {
+        const file = e.target.files[0];
+        if (!file) { uploadedLogos[n] = null; getEl('previewLogo' + n).src = ''; return; }
+        try {
+            const dataUrl = await fileToDataUrl(file);
+            getEl('previewLogo' + n).src = dataUrl;
+            uploadedLogos[n] = await imageToPngDataUrl(dataUrl);
+        } catch (err) {
+            uploadedLogos[n] = null;
+            alert('ლოგოს ჩატვირთვა ვერ მოხერხდა / Logo could not be loaded');
+        }
+    });
+}
+
+/* ===================== Создание PDF ===================== */
+function createPdfBlob(docDefinition) {
+    return new Promise((resolve, reject) => {
+        try { pdfMake.createPdf(docDefinition).getBlob(resolve); } catch (err) { reject(err); }
+    });
+}
+
+async function downloadInvoice(btn, data) {
+    if (!pdfReady) { alert('PDF ბიბლიოთეკა ვერ ჩაიტვირთა (lib/pdfmake.min.js, fonts.js) / PDF-библиотека не загружена'); return; }
+    const original = btn.textContent;
+    btn.disabled = true;
+    try {
+        const tot = calcTotals(data.rows.reduce((s, r) => s + r.amount, 0), data.vatRate);
+        const fileName = makeFileName(data.client.name, fmt(tot.total)) + '.pdf';
+        pdfMake.createPdf(buildDocDefinition(data)).download(fileName);
+    } catch (err) {
+        console.error(err);
+        alert('PDF-ის შექმნა ვერ მოხერხდა / PDF generation failed: ' + err.message);
+    } finally {
+        setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 400);
+    }
+}
+
+/* ===================== Превью: общие функции ===================== */
+function applyLabels(n, lang, kind) {
+    const t = I18N[lang];
+    const set = (id, value) => { const el = getEl(id + n); if (el) el.textContent = value; };
+    set('invTitle', t.invTitle);
+    set('tNum', t.num);
+    set('tDate', t.date);
+    set('tSellerTitle', t.seller);
+    set('tClientTitle', t.client);
+    set('tSellerCodeLabel', t.codeLabel);
+    set('tClientCodeLabel', t.codeLabel);
+    set('thDesc', kind === 'product' ? t.productDesc : t.serviceDesc);
+    set('thPrice', t.amount);
+    set('thUnit', t.unit);
+    set('thUnitPrice', t.unitPrice);
+    set('thQty', t.qty);
+    set('tSubtotalLabel', (kind === 'product' ? t.subtotalProduct : t.subtotalService) + ':');
+    set('tTotalLabel', t.total + ':');
+    set('downloadBtn', t.download);
+}
+
+// Связывает поле формы с элементом превью (textContent — безопасно, без HTML-инъекций)
+function mirror(inputId, previewId, fallback) {
+    getEl(inputId).addEventListener('input', e => {
+        getEl(previewId).textContent = e.target.value || (fallback === undefined ? '' : fallback);
+    });
+}
+
+/* ===================== Вкладки 2 и 3: услуги ===================== */
+function setupServiceTab(n) {
+    const fixedSeller = n === '3'; // вкладка 3 = «ნეთვორქერ თიმი» с постоянными реквизитами
+    setupThemeSwitcher('themeSelect' + n, 'invoice' + n);
+
+    function updateCalc() {
+        const price = parseFloat(getEl('itemPrice' + n).value) || 0;
+        const vatRate = parseFloat(getEl('vatRate' + n).value) || 0;
+        const tot = calcTotals(price, vatRate);
+        getEl('previewPrice' + n).textContent = fmt(tot.subtotal);
+        getEl('previewSubtotal' + n).textContent = fmt(tot.subtotal);
+        getEl('previewVat' + n).textContent = fmt(tot.vat);
+        getEl('previewTotal' + n).textContent = fmt(tot.total);
+        getEl('tVatLabel' + n).textContent = vatLabel(getEl('langSelect' + n).value, vatRate);
     }
 
-    updateCalc3();
-});
+    getEl('langSelect' + n).addEventListener('change', function () {
+        const lang = this.value;
+        applyLabels(n, lang, 'service');
+        if (fixedSeller) getEl('previewSellerName3').textContent = networkerSeller(lang).name;
+        updateCalc();
+    });
 
-getEl('invNum3').addEventListener('input', e => getEl('previewNum3').innerText = e.target.value);
-getEl('invDate3').addEventListener('input', e => getEl('previewDate3').innerText = e.target.value);
-getEl('clientName3').addEventListener('input', e => getEl('previewClient3').innerText = e.target.value);
-getEl('clientCode3').addEventListener('input', e => getEl('previewClientCode3').innerText = e.target.value);
-getEl('itemDesc3').addEventListener('input', e => getEl('previewDesc3').innerText = e.target.value);
-getEl('itemPrice3').addEventListener('input', updateCalc3);
-getEl('vatRate3').addEventListener('change', updateCalc3);
+    mirror('invNum' + n, 'previewNum' + n, '-');
+    mirror('invDate' + n, 'previewDate' + n, '-');
+    mirror('clientName' + n, 'previewClient' + n, '-');
+    mirror('clientCode' + n, 'previewClientCode' + n, '-');
+    mirror('itemDesc' + n, 'previewDesc' + n);
+    if (!fixedSeller) {
+        mirror('sellerName' + n, 'previewSeller' + n);
+        mirror('sellerCode' + n, 'previewSellerCode' + n);
+        mirror('sellerBank' + n, 'previewBank' + n);
+        setupLogoInput(n);
+    }
+    getEl('itemPrice' + n).addEventListener('input', updateCalc);
+    getEl('vatRate' + n).addEventListener('change', updateCalc);
 
-getEl('downloadBtn3').addEventListener('click', function() {
-    let clientName = getEl('clientName3').value.trim() || 'client';
-    let totalAmount = getEl('previewTotal3').innerText;
-    let safeFileName = `${clientName}_${totalAmount} ლარი`.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
+    getEl('downloadBtn' + n).addEventListener('click', async function () {
+        const lang = getEl('langSelect' + n).value;
+        const data = {
+            lang: lang,
+            theme: getEl('themeSelect' + n).value,
+            kind: 'service',
+            number: getEl('invNum' + n).value.trim(),
+            date: getEl('invDate' + n).value,
+            vatRate: parseFloat(getEl('vatRate' + n).value) || 0,
+            client: { name: getEl('clientName' + n).value.trim(), code: getEl('clientCode' + n).value.trim() },
+            rows: [{ desc: getEl('itemDesc' + n).value, amount: parseFloat(getEl('itemPrice' + n).value) || 0 }],
+            seller: fixedSeller ? networkerSeller(lang) : {
+                name: getEl('sellerName' + n).value.trim(),
+                code: getEl('sellerCode' + n).value.trim(),
+                ibans: [{ label: 'IBAN:', value: getEl('sellerBank' + n).value.trim() }]
+            },
+            logo: fixedSeller ? await getNetworkerLogo() : (uploadedLogos[n] || null)
+        };
+        downloadInvoice(this, data);
+    });
 
-    html2pdf().from(getEl('invoice3')).set({
-        margin: 10, filename: `${safeFileName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        enableLinks: true
-    }).save();
-});
+    updateCalc();
+}
+setupServiceTab('2');
+setupServiceTab('3');
 
-
-// --- ტაბი 4 ლოგიკა (პროდუქციის ინვოისი დინამიური პუნქტებით) ---
+/* ===================== Вкладка 4: продукция ===================== */
 setupThemeSwitcher('themeSelect4', 'invoice4');
+setupLogoInput('4');
 
 let productRowsData = [
-    { desc: "სამშენებლო მასალა", unit: "ცალი", unitPrice: 50, qty: 10 }
+    { desc: 'სამშენებლო მასალა', unit: 'ცალი', unitPrice: 50, qty: 10 }
 ];
 
 function renderProductsForm() {
     const container = getEl('productsContainer');
     container.innerHTML = '';
+    const unitOptions = Object.keys(UNITS).map(u => `<option value="${u}">${u}</option>`).join('');
+
     productRowsData.forEach((item, index) => {
-        let div = document.createElement('div');
+        const div = document.createElement('div');
         div.className = 'product-item-row';
+        // В шаблон не подставляем пользовательский текст — значения выставляются ниже через .value
         div.innerHTML = `
             <div class="form-group" style="margin-bottom: 8px;">
                 <label>პროდუქციის დასახელება #${index + 1}:</label>
-                <input type="text" class="p-desc" data-index="${index}" value="${item.desc}">
+                <input type="text" class="p-desc">
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                 <div style="flex: 1;">
                     <label>ერთეული:</label>
-                    <select class="p-unit" data-index="${index}">
-                        <option value="ცალი" ${item.unit === 'ცალი' ? 'selected' : ''}>ცალი</option>
-                        <option value="შეკვრა" ${item.unit === 'შეკვრა' ? 'selected' : ''}>შეკვრა</option>
-                        <option value="კუბი" ${item.unit === 'კუბი' ? 'selected' : ''}>კუბი</option>
-                        <option value="კგ" ${item.unit === 'კგ' ? 'selected' : ''}>კგ</option>
-                        <option value="მეტრი" ${item.unit === 'მეტრი' ? 'selected' : ''}>მეტრი</option>
-                    </select>
+                    <select class="p-unit">${unitOptions}</select>
                 </div>
                 <div style="flex: 1;">
                     <label>ერთ. ფასი (₾):</label>
-                    <input type="number" class="p-price" data-index="${index}" value="${item.unitPrice}" step="any">
+                    <input type="number" class="p-price" step="any">
                 </div>
                 <div style="flex: 1;">
                     <label>რაოდენობა:</label>
-                    <input type="number" class="p-qty" data-index="${index}" value="${item.qty}" min="0" step="any">
+                    <input type="number" class="p-qty" min="0" step="any">
                 </div>
-            </div>
-            ${productRowsData.length > 1 ? `<button type="button" class="btn-remove-item" onclick="removeProductRow(${index})">წაშლა</button>` : ''}
-        `;
+            </div>`;
+
+        const descEl = div.querySelector('.p-desc');
+        const unitEl = div.querySelector('.p-unit');
+        const priceEl = div.querySelector('.p-price');
+        const qtyEl = div.querySelector('.p-qty');
+        descEl.value = item.desc;
+        unitEl.value = item.unit;
+        priceEl.value = item.unitPrice;
+        qtyEl.value = item.qty;
+
+        descEl.addEventListener('input', e => { item.desc = e.target.value; updateCalc4(); });
+        unitEl.addEventListener('change', e => { item.unit = e.target.value; updateCalc4(); });
+        priceEl.addEventListener('input', e => { item.unitPrice = parseFloat(e.target.value) || 0; updateCalc4(); });
+        qtyEl.addEventListener('input', e => { item.qty = parseFloat(e.target.value) || 0; updateCalc4(); });
+
+        if (productRowsData.length > 1) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-remove-item';
+            btn.textContent = 'წაშლა';
+            btn.addEventListener('click', () => {
+                productRowsData.splice(index, 1);
+                renderProductsForm();
+                updateCalc4();
+            });
+            div.appendChild(btn);
+        }
         container.appendChild(div);
     });
-
-    container.querySelectorAll('.p-desc').forEach(el => el.addEventListener('input', e => {
-        productRowsData[e.target.dataset.index].desc = e.target.value;
-        updateCalc4();
-    }));
-    container.querySelectorAll('.p-unit').forEach(el => el.addEventListener('change', e => {
-        productRowsData[e.target.dataset.index].unit = e.target.value;
-        updateCalc4();
-    }));
-    container.querySelectorAll('.p-price').forEach(el => el.addEventListener('input', e => {
-        productRowsData[e.target.dataset.index].unitPrice = parseFloat(e.target.value) || 0;
-        updateCalc4();
-    }));
-    container.querySelectorAll('.p-qty').forEach(el => el.addEventListener('input', e => {
-        productRowsData[e.target.dataset.index].qty = parseFloat(e.target.value) || 0;
-        updateCalc4();
-    }));
 }
 
-window.removeProductRow = function(index) {
-    productRowsData.splice(index, 1);
-    renderProductsForm();
-    updateCalc4();
-}
-
-getEl('addProductBtn').addEventListener('click', function() {
+getEl('addProductBtn').addEventListener('click', function () {
     if (productRowsData.length >= 10) {
-        alert("მაქსიმუმ შესაძლებელია 10 პუნქტის დამატება!");
+        alert('მაქსიმუმ შესაძლებელია 10 პუნქტის დამატება!');
         return;
     }
-    productRowsData.push({ desc: "ახალი პროდუქტი", unit: "ცალი", unitPrice: 10, qty: 1 });
+    productRowsData.push({ desc: 'ახალი პროდუქტი', unit: 'ცალი', unitPrice: 10, qty: 1 });
     renderProductsForm();
     updateCalc4();
 });
 
+function productRowsForPdf() {
+    return productRowsData.map(r => ({
+        desc: r.desc, unit: r.unit, unitPrice: r.unitPrice, qty: r.qty,
+        amount: round2(r.qty * r.unitPrice)
+    }));
+}
+
 function updateCalc4() {
-    let subtotal = 0;
-    let tbody = getEl('previewTableBody4');
+    const lang = getEl('langSelect4').value;
+    const tbody = getEl('previewTableBody4');
     tbody.innerHTML = '';
 
-    productRowsData.forEach(item => {
-        let lineTotal = item.qty * item.unitPrice;
-        subtotal += lineTotal;
-
-        let tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${item.desc}</td>
-            <td style="text-align: center;">${item.unit}</td>
-            <td style="text-align: right;">${item.unitPrice.toFixed(2)} ₾</td>
-            <td style="text-align: center;">${item.qty}</td>
-            <td style="text-align: right;">${lineTotal.toFixed(2)} ₾</td>
-        `;
+    const rows = productRowsForPdf();
+    rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const cells = [
+            [r.desc, ''],
+            [unitLabel(r.unit, lang), 'text-align: center;'],
+            [fmt(r.unitPrice) + ' ₾', 'text-align: right;'],
+            [String(r.qty), 'text-align: center;'],
+            [fmt(r.amount) + ' ₾', 'text-align: right;']
+        ];
+        cells.forEach(([text, style]) => {
+            const td = document.createElement('td');
+            td.textContent = text;          // textContent — безопасно для любых символов
+            if (style) td.style.cssText = style;
+            tr.appendChild(td);
+        });
         tbody.appendChild(tr);
     });
 
-    let vatRate = parseFloat(getEl('vatRate4').value) || 0;
-    let vatAmount = (subtotal * vatRate) / 100;
-    let total = subtotal + vatAmount;
-
-    getEl('previewSubtotal4').innerText = subtotal.toFixed(2);
-    getEl('previewVat4').innerText = vatAmount.toFixed(2);
-    getEl('previewTotal4').innerText = total.toFixed(2);
-    
-    let lang = getEl('langSelect4').value;
-    getEl('tVatLabel4').innerText = (lang == 'en' ? `VAT (${vatRate}%):` : (lang == 'ru' ? `НДС (${vatRate}%):` : `დღგ (${vatRate}%):`));
+    const vatRate = parseFloat(getEl('vatRate4').value) || 0;
+    const tot = calcTotals(rows.reduce((s, r) => s + r.amount, 0), vatRate);
+    getEl('previewSubtotal4').textContent = fmt(tot.subtotal);
+    getEl('previewVat4').textContent = fmt(tot.vat);
+    getEl('previewTotal4').textContent = fmt(tot.total);
+    getEl('tVatLabel4').textContent = vatLabel(lang, vatRate);
 }
 
-getEl('langSelect4').addEventListener('change', function() {
-    let t = textsProduct[this.value];
-    getEl('invTitle4').innerText = t.invTitle;
-    getEl('tNum4').innerText = t.tNum;
-    getEl('tDate4').innerText = t.tDate;
-    getEl('tSellerTitle4').innerText = t.tSellerTitle;
-    getEl('tClientTitle4').innerText = t.tClientTitle;
-    getEl('thDesc4').innerText = t.thDesc;
-    getEl('thPrice4').innerText = t.thPrice;
-    getEl('tSubtotalLabel4').innerText = t.tSubtotalLabel + ":";
-    getEl('tTotalLabel4').innerText = t.tTotalLabel + ":";
-    getEl('downloadBtn4').innerText = t.downloadBtn;
+getEl('langSelect4').addEventListener('change', function () {
+    applyLabels('4', this.value, 'product');
     updateCalc4();
 });
 
-getEl('invNum4').addEventListener('input', e => getEl('previewNum4').innerText = e.target.value);
-getEl('invDate4').addEventListener('input', e => getEl('previewDate4').innerText = e.target.value);
-getEl('clientName4').addEventListener('input', e => getEl('previewClient4').innerText = e.target.value);
-getEl('clientCode4').addEventListener('input', e => getEl('previewClientCode4').innerText = e.target.value);
-getEl('sellerName4').addEventListener('input', e => getEl('previewSeller4').innerText = e.target.value);
-getEl('sellerCode4').addEventListener('input', e => getEl('previewSellerCode4').innerText = e.target.value);
-getEl('sellerBank4').addEventListener('input', e => getEl('previewBank4').innerText = e.target.value);
+mirror('invNum4', 'previewNum4', '-');
+mirror('invDate4', 'previewDate4', '-');
+mirror('clientName4', 'previewClient4', '-');
+mirror('clientCode4', 'previewClientCode4', '-');
+mirror('sellerName4', 'previewSeller4');
+mirror('sellerCode4', 'previewSellerCode4');
+mirror('sellerBank4', 'previewBank4');
 getEl('vatRate4').addEventListener('change', updateCalc4);
 
-getEl('logoInput4').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = ev => getEl('previewLogo4').src = ev.target.result;
-        reader.readAsDataURL(file);
-    }
-});
-
-getEl('downloadBtn4').addEventListener('click', function() {
-    let clientName = getEl('clientName4').value.trim() || 'client';
-    let totalAmount = getEl('previewTotal4').innerText;
-    let safeFileName = `${clientName}_${totalAmount} ლარი`.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
-
-    html2pdf().from(getEl('invoice4')).set({
-        margin: 10, filename: `${safeFileName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        enableLinks: true
-    }).save();
+getEl('downloadBtn4').addEventListener('click', function () {
+    downloadInvoice(this, {
+        lang: getEl('langSelect4').value,
+        theme: getEl('themeSelect4').value,
+        kind: 'product',
+        number: getEl('invNum4').value.trim(),
+        date: getEl('invDate4').value,
+        vatRate: parseFloat(getEl('vatRate4').value) || 0,
+        client: { name: getEl('clientName4').value.trim(), code: getEl('clientCode4').value.trim() },
+        seller: {
+            name: getEl('sellerName4').value.trim(),
+            code: getEl('sellerCode4').value.trim(),
+            ibans: [{ label: 'IBAN:', value: getEl('sellerBank4').value.trim() }]
+        },
+        rows: productRowsForPdf(),
+        logo: uploadedLogos['4'] || null
+    });
 });
 
 renderProductsForm();
 updateCalc4();
 
+/* ===================== Tab 1: массовая генерация ===================== */
 
-// --- მასობრივი გენერაცია (ტაბი 1) ---
-getEl('bulkDownloadBtn').addEventListener('click', async function() {
+// Нормальный CSV-парсер: кавычки, запятые внутри названий, разделитель , или ;, BOM, \r\n
+function parseCSV(text) {
+    text = text.replace(/^\uFEFF/, '');
+    const firstLine = text.split(/\r?\n/, 1)[0] || '';
+    const delim = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
+    const rows = [];
+    let row = [], cell = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') { cell += '"'; i++; } else inQuotes = false;
+            } else cell += ch;
+        } else if (ch === '"') {
+            inQuotes = true;
+        } else if (ch === delim) {
+            row.push(cell); cell = '';
+        } else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(cell); cell = '';
+            rows.push(row); row = [];
+        } else cell += ch;
+    }
+    row.push(cell);
+    rows.push(row);
+    return rows
+        .map(r => r.map(c => c.trim()))
+        .filter(r => r.some(c => c !== ''));
+}
+
+// "1 500,50" / "1500.50" -> 1500.5
+function parseAmount(str) {
+    return parseFloat(String(str).replace(/\s/g, '').replace(',', '.')) || 0;
+}
+
+getEl('bulkDownloadBtn').addEventListener('click', async function () {
     const fileInput = getEl('csvInput');
     if (!fileInput.files.length) {
-        alert("გთხოვთ ატვირთოთ CSV ფაილი!");
+        alert('გთხოვთ ატვირთოთ CSV ფაილი!');
         return;
     }
 
-    const text = await fileInput.files[0].text();
-    const rows = text.split('\n').map(r => r.trim()).filter(r => r);
-    const zip = new JSZip();
-    const folder = zip.folder("invoices");
+    if (!pdfReady) { alert('PDF ბიბლიოთეკა ვერ ჩაიტვირთა (lib/pdfmake.min.js, fonts.js) / PDF-библиотека не загружена'); return; }
+    if (typeof JSZip === 'undefined') { alert('JSZip ვერ ჩაიტვირთა (საჭიროა ინტერნეტი ან standalone ვერსია) / JSZip не загружен (нужен интернет или standalone-версия)'); return; }
+
+    const btn = this;
     const progress = getEl('progressText');
+    btn.disabled = true;
 
-    let startIndex = rows[0].toLowerCase().includes('client') ? 1 : 0;
-    let totalClients = rows.length - startIndex;
+    try {
+        const rows = parseCSV(await fileInput.files[0].text());
+        if (!rows.length) { alert('CSV ფაილი ცარიელია!'); return; }
 
-    for (let i = startIndex; i < rows.length; i++) {
-        let parts = rows[i].split(',');
-        if (parts.length < 2) continue;
-        
-        let clientName = parts[0].trim();
-        let clientCode = parts[1] ? parts[1].trim() : "";
-        let amount = parts[2] ? parseFloat(parts[2].trim()) || 0 : (parseFloat(parts[1].trim()) || 0);
-        let invNumStr = parts[3] ? parts[3].trim() : `№ 2026-${(i - startIndex + 1).toString().padStart(3, '0')}`;
-        let invDateStr = parts[4] ? parts[4].trim() : new Date().toISOString().split('T')[0];
+        const zip = new JSZip();
+        const folder = zip.folder('invoices');
+        const usedNames = new Set();
+        const theme = getEl('themeSelect0').value;
+        const logo = await getNetworkerLogo();
+        const seller = networkerSeller('ka');
+        const year = new Date().getFullYear();
 
-        let vatAmount = (amount * 18) / 100;
-        let total = amount + vatAmount;
+        const startIndex = rows[0].join(',').toLowerCase().includes('client') ? 1 : 0;
+        const totalClients = rows.length - startIndex;
+        let done = 0, failed = 0;
 
-        getEl('bPreviewClient').innerText = clientName;
-        getEl('bPreviewClientCode').innerText = clientCode;
-        getEl('bPreviewNum').innerText = invNumStr;
-        getEl('bPreviewDate').innerText = invDateStr;
-        getEl('bPreviewPrice').innerText = amount.toFixed(2);
-        getEl('bPreviewSubtotal').innerText = amount.toFixed(2);
-        getEl('bPreviewVat').innerText = vatAmount.toFixed(2);
-        getEl('bPreviewTotal').innerText = total.toFixed(2);
+        for (let i = startIndex; i < rows.length; i++) {
+            const parts = rows[i];
+            if (parts.length < 2) continue;
 
-        progress.innerText = `გენერირდება: ${i - startIndex + 1} / ${totalClients} (${clientName})`;
-        await new Promise(r => setTimeout(r, 60));
+            const clientName = parts[0];
+            const clientCode = parts[1] || '';
+            const amount = parts[2] ? parseAmount(parts[2]) : parseAmount(parts[1]);
+            const seq = i - startIndex + 1;
+            const invNumStr = parts[3] || `№ ${year}-${String(seq).padStart(3, '0')}`;
+            const invDateStr = parts[4] || new Date().toISOString().split('T')[0];
 
-        let pdfBlob = await html2pdf().from(getEl('bulkInvoice')).set({
-            margin: 10,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 1.5, useCORS: true, letterRendering: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-            enableLinks: true
-        }).output('blob');
+            progress.textContent = `გენერირდება: ${seq} / ${totalClients} (${clientName})`;
+            await new Promise(r => setTimeout(r, 0)); // даём браузеру обновить текст прогресса
 
-        let fileNameStr = `${clientName}_${total.toFixed(2)} ლარი`;
-        let safeFileName = fileNameStr.replace(/[^a-zA-Z0-9ა-ჰ]/g, "_");
+            try {
+                const data = {
+                    lang: 'ka', theme: theme, kind: 'service',
+                    number: invNumStr, date: invDateStr, vatRate: 18,
+                    seller: seller,
+                    client: { name: clientName, code: clientCode },
+                    rows: [{ desc: 'ყოველთვიური მომსახურება', amount: amount }],
+                    logo: logo
+                };
+                const total = calcTotals(amount, 18).total;
+                const blob = await createPdfBlob(buildDocDefinition(data));
 
-        folder.file(`${safeFileName}.pdf`, pdfBlob);
-    }
+                // Одинаковые имена не должны перезаписывать друг друга внутри архива
+                let base = makeFileName(clientName, fmt(total)), name = base, k = 2;
+                while (usedNames.has(name)) name = `${base}_${k++}`;
+                usedNames.add(name);
 
-    progress.innerText = "მიმდინარეობს ZIP არქივის შექმნა...";
-    zip.generateAsync({ type: "blob" }).then(function(content) {
-        let link = document.createElement('a');
-        link.href = URL.createObjectURL(content);
-        link.download = "invoices_archive.zip";
+                folder.file(`${name}.pdf`, blob);
+                done++;
+            } catch (err) {
+                console.error('Ошибка строки', i + 1, err);
+                failed++;
+            }
+        }
+
+        progress.textContent = 'მიმდინარეობს ZIP არქივის შექმნა...';
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'invoices_archive.zip';
+        document.body.appendChild(link);
         link.click();
-        progress.innerText = "ყველა ინვოისი წარმატებით ჩამოიტვირთა!";
-    });
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+        progress.textContent = failed
+            ? `ჩამოიტვირთა: ${done}, შეცდომა: ${failed} (იხილეთ კონსოლი)`
+            : 'ყველა ინვოისი წარმატებით ჩამოიტვირთა!';
+    } catch (err) {
+        console.error(err);
+        progress.textContent = '';
+        alert('შეცდომა / Error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+    }
 });
