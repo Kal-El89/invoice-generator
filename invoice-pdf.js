@@ -53,6 +53,15 @@
         'მეტრი':  { ka: 'მეტრი',  en: 'm',    ru: 'м' }
     };
 
+    // Валюты: символ для отображения и слово для имени файла
+    const CURRENCIES = {
+        GEL: { symbol: '₾', fileWord: 'ლარი' },
+        USD: { symbol: '$', fileWord: 'USD' },
+        EUR: { symbol: '€', fileWord: 'EUR' },
+        RUB: { symbol: '₽', fileWord: 'RUB' }
+    };
+    const currencySymbol = code => (CURRENCIES[code] || CURRENCIES.GEL).symbol;
+
     const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
     const fmt = n => round2(n).toFixed(2);
 
@@ -71,14 +80,15 @@
     }
 
     // Безопасное имя файла: оставляем буквы (в т.ч. грузинские и кириллицу) и цифры
-    function makeFileName(clientName, total) {
-        const raw = `${clientName || 'client'}_${total} ლარი`;
+    function makeFileName(clientName, total, currency) {
+        const word = (CURRENCIES[currency] || CURRENCIES.GEL).fileWord;
+        const raw = `${clientName || 'client'}_${total} ${word}`;
         return raw.replace(/[^\p{L}\p{N}]/gu, '_');
     }
 
     /*
      * data = {
-     *   lang, theme, number, date, logo (PNG/JPEG dataURL | null), vatRate,
+     *   lang, theme, currency ('GEL'|'USD'|'EUR'|'RUB'), number, date, logo (PNG/JPEG dataURL | null), vatRate,
      *   seller: { name, code, ibans: [{label, value}] },
      *   client: { name, code },
      *   kind: 'service' | 'product',
@@ -94,6 +104,7 @@
         const PAGE_W = 595.28, MARGIN = 36;
         const W = PAGE_W - MARGIN * 2;
         const isProduct = data.kind === 'product';
+        const cur = currencySymbol(data.currency);
 
         const subtotal = data.rows.reduce((s, r) => s + (r.amount || 0), 0);
         const tot = calcTotals(subtotal, data.vatRate);
@@ -159,14 +170,14 @@
             ]].concat(data.rows.map(r => [
                 { text: r.desc },
                 { text: unitLabel(r.unit, lang), alignment: 'center' },
-                { text: fmt(r.unitPrice) + ' ₾', alignment: 'right' },
+                { text: fmt(r.unitPrice) + ' ' + cur, alignment: 'right' },
                 { text: String(r.qty), alignment: 'center' },
-                { text: fmt(r.amount) + ' ₾', alignment: 'right' }
+                { text: fmt(r.amount) + ' ' + cur, alignment: 'right' }
             ]));
         } else {
             widths = ['*', 110];
             body = [[th(t.serviceDesc, 'left'), th(t.amount, 'right')]].concat(
-                data.rows.map(r => [{ text: r.desc }, { text: fmt(r.amount) + ' ₾', alignment: 'right' }])
+                data.rows.map(r => [{ text: r.desc }, { text: fmt(r.amount) + ' ' + cur, alignment: 'right' }])
             );
         }
 
@@ -182,7 +193,7 @@
 
         // ---- Итоги ----
         const subLabel = isProduct ? t.subtotalProduct : t.subtotalService;
-        const val = txt => ({ text: txt + ' ₾', alignment: 'right', bold: true });
+        const val = txt => ({ text: txt + ' ' + cur, alignment: 'right', bold: true });
         const totals = {
             unbreakable: true,
             margin: [0, 16, 0, 0],
@@ -197,7 +208,7 @@
                             [{ text: vatLabel(lang, data.vatRate), alignment: 'right' }, val(fmt(tot.vat))],
                             [
                                 { text: t.total + ':', alignment: 'right', bold: true, fontSize: 12.5, color: P },
-                                { text: fmt(tot.total) + ' ₾', alignment: 'right', bold: true, fontSize: 12.5, color: P }
+                                { text: fmt(tot.total) + ' ' + cur, alignment: 'right', bold: true, fontSize: 12.5, color: P }
                             ]
                         ]
                     },
@@ -224,5 +235,5 @@
         };
     }
 
-    return { THEMES, I18N, UNITS, round2, fmt, calcTotals, unitLabel, vatLabel, makeFileName, buildDocDefinition };
+    return { THEMES, I18N, UNITS, CURRENCIES, currencySymbol, round2, fmt, calcTotals, unitLabel, vatLabel, makeFileName, buildDocDefinition };
 });

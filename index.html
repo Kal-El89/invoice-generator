@@ -5,10 +5,10 @@
     <title>პროფესიონალური ინვოისების გენერატორი</title>
     <!-- საჭირო ბიბლიოთეკები -->
     <script src="lib/pdfmake.min.js"></script>
-    <script src="fonts.js"></script>
-    <script src="invoice-pdf.js"></script>
+    <script src="fonts.js?v=3"></script>
+    <script src="invoice-pdf.js?v=3"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -32,6 +32,16 @@
                     <option value="theme-emerald">ზურმუხტისფერი მწვანე</option>
                     <option value="theme-dark">მუქი გრაფიტი</option>
                     <option value="theme-purple">პრემიუმ იისფერი</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>ვალუტა / Currency:</label>
+                <select id="currencySelect0">
+                    <option value="GEL" selected>₾ ლარი (GEL)</option>
+                    <option value="USD">$ დოლარი (USD)</option>
+                    <option value="EUR">€ ევრო (EUR)</option>
+                    <option value="RUB">₽ რუბლი (RUB)</option>
                 </select>
             </div>
 
@@ -82,6 +92,16 @@
             </div>
 
             <div class="form-group">
+                <label>ვალუტა / Currency:</label>
+                <select id="currencySelect2">
+                    <option value="GEL" selected>₾ ლარი (GEL)</option>
+                    <option value="USD">$ დოლარი (USD)</option>
+                    <option value="EUR">€ ევრო (EUR)</option>
+                    <option value="RUB">₽ რუბლი (RUB)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>ლოგო:</label>
                 <input type="file" id="logoInput2" accept="image/*">
             </div>
@@ -124,7 +144,7 @@
                 <input type="text" id="itemDesc2" value="ყოველთვიური მომსახურება">
             </div>
             <div class="form-group">
-                <label>მომსახურების თანხა (დღგ-ს გარეშე) ₾:</label>
+                <label>მომსახურების თანხა (დღგ-ს გარეშე) <span class="cur2">₾</span>:</label>
                 <input type="number" id="itemPrice2" value="1000">
             </div>
             <div class="form-group">
@@ -175,7 +195,7 @@
                     <tbody>
                         <tr>
                             <td id="previewDesc2">ყოველთვიური მომსახურება</td>
-                            <td style="text-align: right;"><span id="previewPrice2">1000.00</span> ₾</td>
+                            <td style="text-align: right;"><span id="previewPrice2">1000.00</span> <span class="cur2">₾</span></td>
                         </tr>
                     </tbody>
                 </table>
@@ -183,15 +203,15 @@
                 <div class="totals-section">
                     <div class="totals-row">
                         <span id="tSubtotalLabel2">მომსახურების თანხა (დღგ-ს გარეშე):</span>
-                        <span><strong id="previewSubtotal2">1000.00</strong> ₾</span>
+                        <span><strong id="previewSubtotal2">1000.00</strong> <span class="cur2">₾</span></span>
                     </div>
                     <div class="totals-row">
                         <span id="tVatLabel2">დღგ (18%):</span>
-                        <span><strong id="previewVat2">180.00</strong> ₾</span>
+                        <span><strong id="previewVat2">180.00</strong> <span class="cur2">₾</span></span>
                     </div>
                     <div class="totals-row final">
                         <span id="tTotalLabel2">სულ გადასახდელი (Total):</span>
-                        <span><strong id="previewTotal2">1180.00</strong> ₾</span>
+                        <span><strong id="previewTotal2">1180.00</strong> <span class="cur2">₾</span></span>
                     </div>
                 </div>
             </div>
@@ -219,6 +239,16 @@
                     <option value="ka">ქართული</option>
                     <option value="en">English</option>
                     <option value="ru">Русский</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>ვალუტა / Currency:</label>
+                <select id="currencySelect3">
+                    <option value="GEL" selected>₾ ლარი (GEL)</option>
+                    <option value="USD">$ დოლარი (USD)</option>
+                    <option value="EUR">€ ევრო (EUR)</option>
+                    <option value="RUB">₽ რუბლი (RUB)</option>
                 </select>
             </div>
 
@@ -254,7 +284,7 @@
                 <input type="text" id="itemDesc3" value="ყოველთვიური მომსახურება">
             </div>
             <div class="form-group">
-                <label>მომსახურების თანხა (დღგ-ს გარეშე) ₾:</label>
+                <label>მომსახურების თანხა (დღგ-ს გარეშე) <span class="cur3">₾</span>:</label>
                 <input type="number" id="itemPrice3" value="1000">
             </div>
             <div class="form-group">
@@ -306,7 +336,7 @@
                     <tbody>
                         <tr>
                             <td id="previewDesc3">ყოველთვიური მომსახურება</td>
-                            <td style="text-align: right;"><span id="previewPrice3">1000.00</span> ₾</td>
+                            <td style="text-align: right;"><span id="previewPrice3">1000.00</span> <span class="cur3">₾</span></td>
                         </tr>
                     </tbody>
                 </table>
@@ -314,15 +344,15 @@
                 <div class="totals-section">
                     <div class="totals-row">
                         <span id="tSubtotalLabel3">მომსახურების თანხა (დღგ-ს გარეშე):</span>
-                        <span><strong id="previewSubtotal3">1000.00</strong> ₾</span>
+                        <span><strong id="previewSubtotal3">1000.00</strong> <span class="cur3">₾</span></span>
                     </div>
                     <div class="totals-row">
                         <span id="tVatLabel3">დღგ (18%):</span>
-                        <span><strong id="previewVat3">180.00</strong> ₾</span>
+                        <span><strong id="previewVat3">180.00</strong> <span class="cur3">₾</span></span>
                     </div>
                     <div class="totals-row final">
                         <span id="tTotalLabel3">სულ გადასახდელი (Total):</span>
-                        <span><strong id="previewTotal3">1180.00</strong> ₾</span>
+                        <span><strong id="previewTotal3">1180.00</strong> <span class="cur3">₾</span></span>
                     </div>
                 </div>
             </div>
@@ -350,6 +380,16 @@
                     <option value="ka">ქართული</option>
                     <option value="en">English</option>
                     <option value="ru">Русский</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>ვალუტა / Currency:</label>
+                <select id="currencySelect4">
+                    <option value="GEL" selected>₾ ლარი (GEL)</option>
+                    <option value="USD">$ დოლარი (USD)</option>
+                    <option value="EUR">€ ევრო (EUR)</option>
+                    <option value="RUB">₽ რუბლი (RUB)</option>
                 </select>
             </div>
 
@@ -452,21 +492,21 @@
                 <div class="totals-section">
                     <div class="totals-row">
                         <span id="tSubtotalLabel4">პროდუქციის თანხა (დღგ-ს გარეშე):</span>
-                        <span><strong id="previewSubtotal4">0.00</strong> ₾</span>
+                        <span><strong id="previewSubtotal4">0.00</strong> <span class="cur4">₾</span></span>
                     </div>
                     <div class="totals-row">
                         <span id="tVatLabel4">დღგ (18%):</span>
-                        <span><strong id="previewVat4">0.00</strong> ₾</span>
+                        <span><strong id="previewVat4">0.00</strong> <span class="cur4">₾</span></span>
                     </div>
                     <div class="totals-row final">
                         <span id="tTotalLabel4">სულ გადასახდელი (Total):</span>
-                        <span><strong id="previewTotal4">0.00</strong> ₾</span>
+                        <span><strong id="previewTotal4">0.00</strong> <span class="cur4">₾</span></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=3"></script>
 </body>
 </html>

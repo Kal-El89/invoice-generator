@@ -30,8 +30,14 @@ if (typeof InvoicePDF === 'undefined') throw new Error('invoice-pdf.js не за
 window.addEventListener('error', e => showBanner('JS შეცდომა / Ошибка JS: ' + e.message));
 
 /* ===================== Общие настройки ===================== */
-const { I18N, UNITS, round2, fmt, calcTotals, unitLabel, vatLabel, makeFileName, buildDocDefinition } = InvoicePDF;
+const { I18N, UNITS, round2, fmt, calcTotals, unitLabel, vatLabel, makeFileName, buildDocDefinition, currencySymbol } = InvoicePDF;
 const getEl = id => document.getElementById(id);
+
+// Валюта: обновляет символ во всех местах превью/формы вкладки n (элементы с классом cur{n})
+function applyCurrency(n) {
+    const sym = currencySymbol(getEl('currencySelect' + n).value);
+    document.querySelectorAll('.cur' + n).forEach(el => { el.textContent = sym; });
+}
 
 // pdfmake: подключаем встроенные шрифты (fonts.js). Благодаря им грузинский, кириллица и ₾
 // записываются в PDF как настоящий текст, который можно копировать.
@@ -153,7 +159,7 @@ async function downloadInvoice(btn, data) {
     btn.disabled = true;
     try {
         const tot = calcTotals(data.rows.reduce((s, r) => s + r.amount, 0), data.vatRate);
-        const fileName = makeFileName(data.client.name, fmt(tot.total)) + '.pdf';
+        const fileName = makeFileName(data.client.name, fmt(tot.total), data.currency) + '.pdf';
         pdfMake.createPdf(buildDocDefinition(data)).download(fileName);
     } catch (err) {
         console.error(err);
@@ -227,6 +233,7 @@ function setupServiceTab(n) {
     }
     getEl('itemPrice' + n).addEventListener('input', updateCalc);
     getEl('vatRate' + n).addEventListener('change', updateCalc);
+    getEl('currencySelect' + n).addEventListener('change', () => applyCurrency(n));
 
     getEl('downloadBtn' + n).addEventListener('click', async function () {
         const lang = getEl('langSelect' + n).value;
@@ -234,6 +241,7 @@ function setupServiceTab(n) {
             lang: lang,
             theme: getEl('themeSelect' + n).value,
             kind: 'service',
+            currency: getEl('currencySelect' + n).value,
             number: getEl('invNum' + n).value.trim(),
             date: getEl('invDate' + n).value,
             vatRate: parseFloat(getEl('vatRate' + n).value) || 0,
@@ -282,7 +290,7 @@ function renderProductsForm() {
                     <select class="p-unit">${unitOptions}</select>
                 </div>
                 <div style="flex: 1;">
-                    <label>ერთ. ფასი (₾):</label>
+                    <label>ერთ. ფასი (<span class="cur4">${currencySymbol(getEl('currencySelect4').value)}</span>):</label>
                     <input type="number" class="p-price" step="any">
                 </div>
                 <div style="flex: 1;">
@@ -343,15 +351,16 @@ function updateCalc4() {
     const tbody = getEl('previewTableBody4');
     tbody.innerHTML = '';
 
+    const sym = currencySymbol(getEl('currencySelect4').value);
     const rows = productRowsForPdf();
     rows.forEach(r => {
         const tr = document.createElement('tr');
         const cells = [
             [r.desc, ''],
             [unitLabel(r.unit, lang), 'text-align: center;'],
-            [fmt(r.unitPrice) + ' ₾', 'text-align: right;'],
+            [fmt(r.unitPrice) + ' ' + sym, 'text-align: right;'],
             [String(r.qty), 'text-align: center;'],
-            [fmt(r.amount) + ' ₾', 'text-align: right;']
+            [fmt(r.amount) + ' ' + sym, 'text-align: right;']
         ];
         cells.forEach(([text, style]) => {
             const td = document.createElement('td');
@@ -383,12 +392,14 @@ mirror('sellerName4', 'previewSeller4');
 mirror('sellerCode4', 'previewSellerCode4');
 mirror('sellerBank4', 'previewBank4');
 getEl('vatRate4').addEventListener('change', updateCalc4);
+getEl('currencySelect4').addEventListener('change', () => { applyCurrency('4'); updateCalc4(); });
 
 getEl('downloadBtn4').addEventListener('click', function () {
     downloadInvoice(this, {
         lang: getEl('langSelect4').value,
         theme: getEl('themeSelect4').value,
         kind: 'product',
+        currency: getEl('currencySelect4').value,
         number: getEl('invNum4').value.trim(),
         date: getEl('invDate4').value,
         vatRate: parseFloat(getEl('vatRate4').value) || 0,
@@ -465,6 +476,7 @@ getEl('bulkDownloadBtn').addEventListener('click', async function () {
         const folder = zip.folder('invoices');
         const usedNames = new Set();
         const theme = getEl('themeSelect0').value;
+        const currency = getEl('currencySelect0').value;
         const logo = await getNetworkerLogo();
         const seller = networkerSeller('ka');
         const year = new Date().getFullYear();
@@ -489,7 +501,7 @@ getEl('bulkDownloadBtn').addEventListener('click', async function () {
 
             try {
                 const data = {
-                    lang: 'ka', theme: theme, kind: 'service',
+                    lang: 'ka', theme: theme, currency: currency, kind: 'service',
                     number: invNumStr, date: invDateStr, vatRate: 18,
                     seller: seller,
                     client: { name: clientName, code: clientCode },
@@ -500,7 +512,7 @@ getEl('bulkDownloadBtn').addEventListener('click', async function () {
                 const blob = await createPdfBlob(buildDocDefinition(data));
 
                 // Одинаковые имена не должны перезаписывать друг друга внутри архива
-                let base = makeFileName(clientName, fmt(total)), name = base, k = 2;
+                let base = makeFileName(clientName, fmt(total), currency), name = base, k = 2;
                 while (usedNames.has(name)) name = `${base}_${k++}`;
                 usedNames.add(name);
 
